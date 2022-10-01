@@ -1,25 +1,11 @@
-from numpy import pad
 import torch
-from torch import conv1d, nn
+from torch import nn
 from torchsummary import summary
-import pdb
+from models.common import Block
 
-
-class Block(nn.Module):
-    def __init__(self, channel=64):
-        super(Block, self).__init__()
-        in_channel = channel//2
-        self.Conv1 = nn.Conv2d(in_channels=channel, out_channels=in_channel, kernel_size=1)
-        self.Conv2 = nn.Conv2d(in_channels=in_channel, out_channels=channel, kernel_size=3, padding=1)
-        
-    def forward(self, x):
-        y = self.Conv2(self.Conv1(x))
-        return x+y
-
-
-class Yolo(nn.Module):
-    def __init__(self, channel=64, stages=[1,2,8,8,4]):
-        super(Yolo, self).__init__()
+class Darknet53(nn.Module):
+    def __init__(self, channel=64, stages=[1, 2, 8, 8, 4]):
+        super(Darknet53, self).__init__()
         self.Conv1 = nn.Conv2d(in_channels=3, out_channels=channel//2, kernel_size=3)
         self.Conv2 = nn.Conv2d(in_channels=channel//2, out_channels=channel, kernel_size=3, stride=2)
         self.Stage1 = nn.Sequential(*[Block(channel) for i in range(stages[0])])
@@ -49,8 +35,8 @@ class Yolo(nn.Module):
         
 
 if __name__ == "__main__":
-    model = Yolo()
-    summary(model, input_size=(3,320,320), batch_size=1, device="cpu")
+    model = Darknet53()
+    summary(model, input_size=(3, 320, 320), batch_size=1, device="cpu")
     # x = torch.rand((1,3,448,448), dtype=torch.float32)
     # y = model(x)
     # print(y)
