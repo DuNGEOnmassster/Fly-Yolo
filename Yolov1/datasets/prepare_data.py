@@ -1,0 +1,1 @@
+''' divide the data into train_data, validate_data and test_data '''
