@@ -5,11 +5,11 @@ import matplotlib.pyplot as plt
 from PIL import Image
 
 
-# 图片导入函数s
+# 图片导入函数
 def load_image(img_path, img_height=None, img_width=None):
     image = Image.open(img_path)
     if img_width is not None:
-        image = image.resize((img_width, img_height))  # change image size to (3, img_size, img_size)
+        image = image.resize((img_width, img_height))
 
     transform = transforms.Compose([
         transforms.ToTensor(),
