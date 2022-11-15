@@ -21,7 +21,6 @@ ti.init()
 
 def parse_args():
     parser = argparse.ArgumentParser(description='YOLOv1')
-    # 全没了，晚上再写
     parser.add_argument("-d", "--dataset", default="./../img_data/", 
                         help="folder where origin input img data set")
     parser.add_argument("-o", "--model_weight", default="./../model_weight/",
