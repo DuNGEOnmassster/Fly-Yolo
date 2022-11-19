@@ -57,7 +57,7 @@ def get_convert(tensor):
 
 def show_image(image):
     print(f"image shape: {image.shape}")
-    fig, (ax1) = plt.subplot(1, figsize=(16, 16))
+    fig, (ax1) = plt.subplots(1,figsize=(16, 16))
     ax1.imshow(get_convert(image))
     ax1.set_title('origin image')
     ax1.axis('off')
