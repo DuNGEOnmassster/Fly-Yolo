@@ -43,10 +43,31 @@ def load_image(args):
     image = trans_image(image)[:3, :, :].unsqueeze(dim=0)
     return image
 
+
+def get_convert(tensor):
+    # delete batch dim
+    image = tensor.data.numpy().squeeze()
+    # transpose [c,h,w] -> [h,w,c]
+    image = image.transpose(1,2,0)
+    # imverse normalization
+    image = image * np.array((0.229, 0.224, 0.225)) + np.array((0.485, 0.456, 0.406))
+    image = image.clip(0, 1)
+    return image
+
+
+def show_image(image):
+    print(f"image shape: {image.shape}")
+    fig, (ax1) = plt.subplot(1, figsize=(16, 16))
+    ax1.imshow(get_convert(image))
+    ax1.set_title('origin image')
+    ax1.axis('off')
+    plt.show()
+
+
 def detect():
     pass
 
 if __name__ == "__main__":
     args = parse_args()
     img = load_image(args)
-    print(img)
+    show_image(img)
