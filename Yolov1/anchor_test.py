@@ -64,10 +64,52 @@ def show_image(image):
     plt.show()
 
 
+def multibox_prior(data, sizes, ratios):
+    in_height, in_width = data.shape[-2:]
+    device, num_sizes, num_ratios = data.device, len(sizes), len(ratios)
+    boxes_per_pixel = (num_sizes + num_ratios - 1)
+    size_tensor = torch.tensor(sizes, device=device)
+    ratio_tensor = torch.tensor(ratios, device=device)
+
+    # Set offset as 0.5
+    offset_h, offset_w = 0.5, 0.5
+    steps_h = 1.0 / in_height  
+    steps_w = 1.0 / in_width  
+
+    # generate every central point
+    center_h = (torch.arange(in_height, device=device) + offset_h) * steps_h
+    center_w = (torch.arange(in_width, device=device) + offset_w) * steps_w
+    shift_y, shift_x = torch.meshgrid(center_h, center_w, indexing='ij')
+    shift_y, shift_x = shift_y.reshape(-1), shift_x.reshape(-1)
+
+    # generate “boxes_per_pixel” gourps of h*w 
+    # for anchor coordinate(xmin,xmax,ymin,ymax)
+    w = torch.cat((size_tensor * torch.sqrt(ratio_tensor[0]),
+                   sizes[0] * torch.sqrt(ratio_tensor[1:])))\
+                   * in_height / in_width  
+    h = torch.cat((size_tensor / torch.sqrt(ratio_tensor[0]),
+                   sizes[0] / torch.sqrt(ratio_tensor[1:])))
+    # get half-height and half-weight
+    anchor_manipulations = torch.stack((-w, -h, w, h)).T.repeat(
+                                        in_height * in_width, 1) / 2
+
+    out_grid = torch.stack([shift_x, shift_y, shift_x, shift_y],
+                dim=1).repeat_interleave(boxes_per_pixel, dim=0)
+    output = out_grid + anchor_manipulations
+    return output.unsqueeze(0)
+
+def get_multibox(image):
+    h, w = image.shape[-2:]
+    print(h, w)
+    X = torch.rand(size=(1, 3, h, w))
+    Y = multibox_prior(X, sizes=[0.75, 0.5, 0.25], ratios=[1, 2, 0.5])
+    print(Y.shape)
+
 def detect():
     pass
 
 if __name__ == "__main__":
     args = parse_args()
-    img = load_image(args)
-    show_image(img)
+    image = load_image(args)
+    # show_image(img)
+    get_multibox(image)
