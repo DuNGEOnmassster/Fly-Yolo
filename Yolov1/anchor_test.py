@@ -4,6 +4,7 @@ import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt
 import argparse
+import d2l.torch as d2l
 
 from PIL import Image
 from torchvision import transforms
@@ -104,6 +105,39 @@ def get_multibox(image):
     X = torch.rand(size=(1, 3, h, w))
     Y = multibox_prior(X, sizes=[0.75, 0.5, 0.25], ratios=[1, 2, 0.5])
     print(Y.shape)
+    boxes = Y.reshape(h, w, 5, 4)
+    print(boxes[250, 250, 0, :])
+    return h,w,boxes
+
+def show_bboxes(axes, bboxes, labels=None, colors=None):
+    def _make_list(obj, default_values=None):
+        if obj is None:
+            obj = default_values
+        elif not isinstance(obj, (list, tuple)):
+            obj = [obj]
+        return obj
+
+    labels = _make_list(labels)
+    colors = _make_list(colors, ['b', 'g', 'r', 'm', 'c'])
+    for i, bbox in enumerate(bboxes):
+        color = colors[i % len(colors)]
+        rect = d2l.bbox_to_rect(bbox.detach().numpy(), color)
+        axes.add_patch(rect)
+        if labels and len(labels) > i:
+            text_color = 'k' if color == 'w' else 'w'
+            axes.text(rect.xy[0], rect.xy[1], labels[i],
+                      va='center', ha='center', fontsize=9, color=text_color,
+                      bbox=dict(facecolor=color, lw=0))
+
+
+def get_anchor_box(image, boxes):
+    d2l.set_figsize()
+    bbox_scale = torch.tensor((w, h, w, h))
+    fig = d2l.plt.imshow(image)
+    show_bboxes(fig.axes, boxes[250, 250, :, :] * bbox_scale,
+                ['s=0.75, r=1', 's=0.5, r=1', 's=0.25, r=1', 's=0.75, r=2',
+                's=0.75, r=0.5'])
+
 
 def detect():
     pass
@@ -112,4 +146,5 @@ if __name__ == "__main__":
     args = parse_args()
     image = load_image(args)
     # show_image(img)
-    get_multibox(image)
+    h,w,boxes = get_multibox(image)
+    get_anchor_box(image, boxes)
