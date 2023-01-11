@@ -11,10 +11,10 @@ import torch
 import torch.nn as nn
 import torch.optim as optim
 from torch.optim.lr_scheduler import CosineAnnealingLR
-from pytorchtools import EarlyStopping
+# from pytorchtools import EarlyStopping
 import tools
 
-from models.darknet53 import Darknet53
+from darknet53 import Darknet53
 import taichi as ti
 ti.init()
 
@@ -87,7 +87,7 @@ def train():
     epoch_size = len(args.dataset) // args.batch_size
     # tricks init
     criterion = nn.CrossEntropyLoss()
-    early_stopping = EarlyStopping(args.patient, verbose=False)
+    # early_stopping = EarlyStopping(args.patient, verbose=False)
     base_lr = args.lr
     tmp_lr = base_lr
     optimizer = optim.SGD(model.parameters(), 
