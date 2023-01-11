@@ -104,18 +104,57 @@ class YOLOv1(nn.Module):
         bbox_pred = bbox_pred * self.stride
 
         return bbox_pred
+    
+    def reference(self, x):
+        __doc__ = r"""
+        推理函数，获得单张图像的边界框和类别预测值
+        parm:
+            x tensor [1, 3, H, W]
+        return:
+            obj_pred tensor [B, HW, 1(obj_score)]
+            cls_pred tensor [B, HW, C(num_classes)]
+            bbox_pred tensor [B, HW, 4(normalized_x1+y1+x2+y2)]
+        """
+        C = self.num_classes
+
+        x = self.backbone(x)
+
+        x = self.nack(x)
+        
+        cls_feat = self.cls_feat(x)
+        reg_feat = self.reg_feat(x)
+        # pred
+        obj_pred = self.obj_pred(reg_feat)
+        reg_pred = self.reg_pred(reg_feat)
+        cls_pred = self.cls_pred(cls_feat)
+
+        # [1, 1, H, W] -> [1, H, W, 1] -> [1, HW, 1]
+        obj_pred = obj_pred.permute(0, 2, 3, 1).contiguous().view(1, -1, 1)
+        # [1, C, H, W] -> [1, H, W, C] -> [1, HW, C]
+        cls_pred = cls_pred.permute(0, 2, 3, 1).contiguous().view(1, -1, C)
+        # [1, 4, H, W] -> [1, H, W, 4] -> [1, HW, 4]
+        reg_pred = reg_pred.permute(0, 2, 3, 1).contiguous().view(1, -1, 4)
+
+        # txtytwth -> x1y1x2y2
+        bbox_pred = self.decode_box(reg_pred=reg_pred)
+        # x1y1x2y2 -> normalized_x1y1x2y2
+        bbox_pred = bbox_pred / self.img_size
+
+        return obj_pred, cls_pred, bbox_pred
+
         
     def forward(self, x):
         __doc__ = r"""
+        训练函数，拟合真实框和边界框
         parm: 
-            x [B, 3, H, W]
+            x tensor [B, 3, H, W]
         return:
-            obj_pred [B, HW, 1(obj_score)]
-            cls_pred [B, HW, C(num_classes)]
-            bbox_pred [B, HW, 4(normalized_x1+y1+x2+y2)]
+            obj_pred tensor [B, HW, 1(obj_score)]
+            cls_pred tensor [B, HW, C(num_classes)]
+            bbox_pred tensor [B, HW, 4(normalized_x1+y1+x2+y2)]
         """
         if not self.trainable:
-            pass
+            self.reference(x)
         else:
             B = x.shape[0]
             C = self.num_classes
@@ -144,17 +183,3 @@ class YOLOv1(nn.Module):
             bbox_pred = bbox_pred / self.img_size
 
         return obj_pred, cls_pred, bbox_pred
-
-
-
-
-
-
-
-
-
-
-
-
-
-
