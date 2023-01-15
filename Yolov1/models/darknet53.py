@@ -1,7 +1,7 @@
 import torch
 from torch import nn
 from torchsummary import summary
-from common import Block
+from models.common import Block
 
 class Darknet53(nn.Module):
     def __init__(self, channel=64, stages=[1, 2, 8, 8, 4]):

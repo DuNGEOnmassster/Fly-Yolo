@@ -16,7 +16,7 @@ from torch.optim.lr_scheduler import CosineAnnealingLR
 # from pytorchtools import EarlyStopping
 import tools
 
-from darknet53 import Darknet53
+from models.darknet53 import Darknet53
 import taichi as ti
 ti.init()
 
