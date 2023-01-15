@@ -17,8 +17,6 @@ from torch.optim.lr_scheduler import CosineAnnealingLR
 import tools
 
 from models.darknet53 import Darknet53
-import taichi as ti
-ti.init()
 
 
 def parse_args():
@@ -56,19 +54,19 @@ def parse_args():
 
     return parser.parse_args()
 
-@ti.func
+
 def set_lr(optimizer, lr):
     for param_group in optimizer.param_groups:
         param_group['lr'] = lr
 
-@ti.func
+
 def load_data(batch_size, train_split, valid_split, device):
     pass
     # all data to(device)
     # return train_loader, valid_loader, test_loader
 
 
-@ti.kernel
+
 def train():
     # args init
     args = parse_args()
@@ -171,3 +169,5 @@ def train():
                         ) 
 
 
+if __name__ == "__main__":
+    train()
