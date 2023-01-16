@@ -1,15 +1,15 @@
 '''计算iou'''
 import numpy as np
 
-def iou(box1, box2, wh=False):
+def iou(pred_bbox, label_bbox, wh=False):
     if wh == False:
-        xmin1, ymin1, xmax1, ymax1 = box1
-        xmin2, ymin2, xmax2, ymax2 = box2
+        xmin1, ymin1, xmax1, ymax1 = pred_bbox
+        xmin2, ymin2, xmax2, ymax2 = label_bbox
     else:
-        xmin1, ymin1 = box1[0]-box1[2]/2.0, box1[1]-box1[3]/2.0
-        xmax1, ymax1 = box1[0]+box1[2]/2.0, box1[1]+box1[3]/2.0
-        xmin2, ymin2 = box2[0]-box2[2]/2.0, box2[1]-box2[3]/2.0
-        xmax2, ymax2 = box2[0]+box2[2]/2.0, box2[1]+box2[3]/2.0
+        xmin1, ymin1 = pred_bbox[0]-pred_bbox[2]/2.0, pred_bbox[1]-pred_bbox[3]/2.0
+        xmax1, ymax1 = pred_bbox[0]+pred_bbox[2]/2.0, pred_bbox[1]+pred_bbox[3]/2.0
+        xmin2, ymin2 = label_bbox[0]-label_bbox[2]/2.0, label_bbox[1]-label_bbox[3]/2.0
+        xmax2, ymax2 = label_bbox[0]+label_bbox[2]/2.0, label_bbox[1]+label_bbox[3]/2.0
     # 获取矩形框交集对应的左上角和右下角的坐标（intersection）
         xx1 = np.max([xmin1, xmin2])
         yy1 = np.max([ymin1, ymin2])
