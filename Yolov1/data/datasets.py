@@ -104,14 +104,16 @@ class YOLODataset(Dataset):
                     # 归一化x翻转
                     labels[:, 1] = 1 - labels[:, 1]
 
-        # (num_targets, cls_idm+x+y+w+h)
-        labels_out = labels
+        # [num_targets, cls_ind+nx+ny+nw+nh] -> [num_targets, batch_ind+cls_ind+nx+ny+nw+nh]
+        labels_out = torch.zeros((num_labels, 6))
+        if num_labels:
+            labels_out[:, 1:] = torch.from_numpy(labels)
 
-        # Convert
+        # img Convert
         img = img[:, :, ::-1].transpose(2, 0, 1)  # BGR to RGB, to 3x640x640
         img = np.ascontiguousarray(img)
 
-        return img, labels_out
+        return torch.from_numpy(img), labels_out
 
     #-----------------------------------------------------------#
     # 数据增强方式: random_perspective, augment_hsv
@@ -250,19 +252,19 @@ class YOLODataset(Dataset):
         cv2.cvtColor(img_hsv, cv2.COLOR_HSV2BGR, dst=img)  # no return needed
 
 
-# 在这里将label改为[num_targets, img_ind+cls_ind_+x+y+w+h]
+# 在这里将label改为[num_targets, batch_ind+cls_ind_+x+y+w+h]
 def collate_fn(batch):
-    imgs = []
-    labels = []
-
-    for img, label in batch:
-        imgs.append(img)
-        labels.append(label)
-
-    imgs = torch.from_numpy(np.array(imgs)).type(torch.FloatTensor)
-    labels = [torch.from_numpy(np.array(label)).type(torch.FloatTensor) for label in labels]
-
-    return imgs, labels
+    __doc__ = r"""
+     parms:
+        batch tuple (imgs, labels)
+    return:
+        imgs tensor
+        labels list of tensor [num_targets, batch_ind+cls_ind+nx+ny+nw+nh]
+    """
+    img, label = zip(*batch)  # transposed
+    for i, l in enumerate(label):
+        l[:, 0] = i  # add target image index for build_targets()
+    return torch.stack(img, 0), torch.cat(label, 0)
 
 if __name__ == "__main__":
     root = r"E:\datasets\yolo_dataset"
