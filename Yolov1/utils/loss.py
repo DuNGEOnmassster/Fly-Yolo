@@ -3,68 +3,63 @@ import torch
 import torch.nn as nn
 from iou import iou
 
-class YOLOv1Loss(nn.Module):
-    def __init__(self, S, B):
-        super().__init__()
-        self.S = S
-        self.B = B
+class MSEWithLogitsLoss(nn.Module):
+    def __init__(self, reduction='mean'):
+        super(MSEWithLogitsLoss, self).__init__()
+        self.reduction = reduction
 
-    def forward(self, preds, labels):
-        batch_size = labels.size(0)
+    def forward(self, logits, targets):
+        inputs = torch.clamp(torch.sigmoid(logits), min=1e-4, max=1.0 - 1e-4)
 
-        loss_coord_xy = 0.  # coord xy loss
-        loss_coord_wh = 0.  # coord wh loss
-        loss_obj = 0.  # obj loss
-        loss_no_obj = 0.  # no obj loss
-        loss_class = 0.  # class loss
+        pos_id = (targets==1.0).float()
+        neg_id = (targets==0.0).float()
+        pos_loss = pos_id * (inputs - targets)**2
+        neg_loss = neg_id * (inputs)**2
+        loss = 5.0*pos_loss + 1.0*neg_loss
 
-        for i in range(batch_size):
-            for y in range(self.S):
-                for x in range(self.S):
-                    # this region has object
-                    if labels[i, y, x, 4] == 1:
-                        pred_bbox1 = torch.Tensor(
-                            [preds[i, y, x, 0], preds[i, y, x, 1], preds[i, y, x, 2], preds[i, y, x, 3]])
-                        pred_bbox2 = torch.Tensor(
-                            [preds[i, y, x, 5], preds[i, y, x, 6], preds[i, y, x, 7], preds[i, y, x, 8]])
-                        label_bbox = torch.Tensor(
-                            [labels[i, y, x, 0], labels[i, y, x, 1], labels[i, y, x, 2], labels[i, y, x, 3]])
+        if self.reduction == 'mean':
+            batch_size = logits.size(0)
+            loss = torch.sum(loss) / batch_size
 
-                        # calculate iou of two bbox
-                        iou1 = iou(pred_bbox1, label_bbox)
-                        iou2 = iou(pred_bbox2, label_bbox)
+            return loss
 
-                        # judge responsible box
-                        if iou1 > iou2:
-                            # calculate coord xy loss
-                            loss_coord_xy += 5 * torch.sum((labels[i, y, x, 0:2] - preds[i, y, x, 0:2]) ** 2)
-                            # coord wh loss
-                            loss_coord_wh += torch.sum((labels[i, y, x, 2:4].sqrt() - preds[i, y, x, 2:4].sqrt()) ** 2)
-                            # obj confidence loss
-                            loss_obj += (iou1 - preds[i, y, x, 4]) ** 2
-                            # no obj confidence loss
-                            loss_no_obj += 0.5 * ((0 - preds[i, y, x, 9]) ** 2)
-                            # loss_no_obj += 0.5 * ((preds[i, y, x, 9] - 0) ** 2)
-                        else:
-                            # coord xy loss
-                            loss_coord_xy += 5 * torch.sum((labels[i, y, x, 5:7] - preds[i, y, x, 5:7]) ** 2)
-                            # coord wh loss
-                            loss_coord_wh += torch.sum((labels[i, y, x, 7:9].sqrt() - preds[i, y, x, 7:9].sqrt()) ** 2)
-                            # obj confidence loss
-                            loss_obj += (iou2 - preds[i, y, x, 9]) ** 2
-                            # loss_obj += (preds[i, y, x, 9] - 1) ** 2
-                            # no obj confidence loss
-                            loss_no_obj += 0.5 * ((0 - preds[i, y, x, 4]) ** 2)
-                            # loss_no_obj += 0.5 * ((preds[i, y, x, 4] - 0) ** 2)
+        else:
+            return loss
 
-                        # class loss
-                        loss_class += torch.sum((labels[i, y, x, 10:] - preds[i, y, x, 10:]) ** 2)
 
-                    # this region has no object
-                    else:
-                        loss_no_obj += 0.5 * torch.sum((0 - preds[i, y, x, [4, 9]]) ** 2)
+def loss(pred_conf, pred_cls, pred_txtytwth, label):
+    # 损失函数
+    conf_loss_function = MSEWithLogitsLoss(reduction='mean')
+    cls_loss_function = nn.CrossEntropyLoss(reduction='none')
+    txty_loss_function = nn.BCEWithLogitsLoss(reduction='none')
+    twth_loss_function = nn.MSELoss(reduction='none')
 
-        print(loss_coord_xy, loss_coord_wh, loss_obj, loss_no_obj, loss_class)
+    # 预测
+    pred_conf = pred_conf[:, :, 0]
+    pred_cls = pred_cls.permute(0, 2, 1)
+    pred_txty = pred_txtytwth[:, :, :2]
+    pred_twth = pred_txtytwth[:, :, 2:]
+    
+    # 标签
+    gt_obj = label[:, :, 0]
+    gt_cls = label[:, :, 1].long()
+    gt_txty = label[:, :, 2:4]
+    gt_twth = label[:, :, 4:6]
+    gt_box_scale_weight = label[:, :, 6]
 
-        loss = loss_coord_xy + loss_coord_wh + loss_obj + loss_no_obj + loss_class  # five loss terms
-        return loss / batch_size
+    batch_size = pred_conf.size(0)
+    # 置信度损失
+    conf_loss = conf_loss_function(pred_conf, gt_obj)
+    
+    # 类别损失
+    cls_loss = torch.sum(cls_loss_function(pred_cls, gt_cls) * gt_obj) / batch_size
+    
+    # 边界框的位置损失
+    txty_loss = torch.sum(torch.sum(txty_loss_function(pred_txty, gt_txty), dim=-1) * gt_box_scale_weight * gt_obj) / batch_size
+    twth_loss = torch.sum(torch.sum(twth_loss_function(pred_twth, gt_twth), dim=-1) * gt_box_scale_weight * gt_obj) / batch_size
+    bbox_loss = txty_loss + twth_loss
+
+    # 总的损失
+    total_loss = conf_loss + cls_loss + bbox_loss
+
+    return conf_loss, cls_loss, bbox_loss, total_loss
