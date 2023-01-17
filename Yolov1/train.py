@@ -73,19 +73,9 @@ def train():
     # model init
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     model = Darknet53()
-    # data init
-    # Two options
-    # 1 load_data
-    # train_loader, valid_loader, test_loader = load_data(args.batch_size, args.train_split, args.valid_split, device)
-    # 2 dataloader
-    dataloader = torch.utils.data.DataLoader(
-                    args.dataset, 
-                    batch_size=args.batch_size, 
-                    shuffle=True, 
-                    pin_memory=True
-                    )
-    print(dataloader)
-    epoch_size = len(args.dataset) // args.batch_size
+    # load_data
+    train_loader, valid_loader, test_loader = load_data(args.batch_size, args.train_split, args.valid_split, device)
+
     # tricks init
     criterion = nn.CrossEntropyLoss()
     # early_stopping = EarlyStopping(args.patient, verbose=False)
