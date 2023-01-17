@@ -21,7 +21,7 @@ from models.darknet53 import Darknet53
 
 def parse_args():
     parser = argparse.ArgumentParser(description='YOLOv1')
-    parser.add_argument("-d", "--dataset", default="./../img_data/", 
+    parser.add_argument("-d", "--dataset", default="/Volumes/NormanZ_980/Dataset/Object_Detection_Dataset/VOCdevkit/VOC2012/JPEGImages", 
                         help="folder where origin input img data set")
     parser.add_argument("-o", "--model_weight", default="./../model_weight/",
                         help="folder where to save model after trainning")
@@ -76,7 +76,7 @@ def train():
     # data init
     # Two options
     # 1 load_data
-    train_loader, valid_loader, test_loader = load_data(args.batch_size, args.train_split, args.valid_split, device)
+    # train_loader, valid_loader, test_loader = load_data(args.batch_size, args.train_split, args.valid_split, device)
     # 2 dataloader
     dataloader = torch.utils.data.DataLoader(
                     args.dataset, 
@@ -84,6 +84,7 @@ def train():
                     shuffle=True, 
                     pin_memory=True
                     )
+    print(dataloader)
     epoch_size = len(args.dataset) // args.batch_size
     # tricks init
     criterion = nn.CrossEntropyLoss()
