@@ -1,0 +1,32 @@
+    anchors = [   [10, 13],   [16, 30],   [33, 23],
+                    [30, 61],   [62, 45],   [59, 119],
+                    [116, 90],  [156, 198], [373, 326]  ]
+    anchor_strides = [8, 16, 32]
+    no_anchor_strides = [32]
+
+    target1 = torch.tensor([[0, 0, 0.5, 0.5, 0.1, 0.1],
+                            [0, 0, 0.6, 0.6, 0.1, 0.1],
+                            [1, 0, 0.6, 0.4, 0.3, 0.3]])
+
+    target2 = torch.tensor([[0, 0, 0.5, 0.5, 0.1, 0.1]])
+
+    # create_targets = CreateTargets(image_size=(320, 320), anchors=None, strides=no_anchor_strides, labels=target1)
+
+    # y_trues1 = create_targets.create_targets(center_sample=True)
+    # print(y_trues1.shape, y_trues1[y_trues1[..., 0] == 1.0])
+
+
+
+    # create_targets = CreateTargets(image_size=(320, 320), anchors=None, strides=no_anchor_strides, labels=target2)
+    # y_trues2 = create_targets.create_targets(center_sample=True)
+    # print(y_trues2.shape, y_trues2[y_trues2[..., 0] == 1.0])
+
+    create_targets = CreateTargets(image_size=(320, 320), anchors=anchors, strides=anchor_strides, labels=target2)
+    temp_anchors = create_targets.set_anchors()
+    gt_boxes = np.array([[0, 0, 0.1 * 320, 0.1 * 320]])
+    iou = create_targets.calculate_iou(gt_boxes.T, temp_anchors, x1y1x2y2=False)
+    print(iou)
+
+    # print(temp_anchors, temp_anchors.shape, temp_anchors.dtype)
+    # print(iou)
+    # print(target, target.shape)
