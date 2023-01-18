@@ -50,7 +50,7 @@ def load_img(img_path, img_size, augment):
     return img, (h0, w0), img.shape[:2]
 
 
-# 获得类别下标和yolo格式标签(num_labels, cls_ind+x+y+w+h)
+# 获得类别下标和yolo格式标签(num_labels, cls_ind+nx+ny+nw+nh)
 def load_labels(class_names, anno_path, remove_difficult=False):
 
     target = ET.parse(anno_path)

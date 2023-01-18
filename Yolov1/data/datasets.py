@@ -1,5 +1,10 @@
 ''' implement the datasets, including make labels and images with data augment '''
 
+'''
+    参考
+    https://github.com/ultralytics/yolov5
+'''
+
 import torch
 import numpy as np
 import cv2
@@ -11,6 +16,7 @@ import math
 import yaml
 import matplotlib.pyplot as plt
 from torch.utils.data.dataset import Dataset
+from torch.utils.data import DataLoader
 
 from data.general import load_img_paths, load_anno_paths, load_img, load_labels, xywhn2xyxy, xyxy2xywh
 
@@ -46,24 +52,15 @@ class YOLODataset(Dataset):
         index = self.indices[index]
         hyp = self.hyp
 
-        if self.augment:
-            # load img
-            img, (h0, w0), (h, w) = load_img(img_path=self.img_paths[index], img_size=self.input_shape,
-                                             augment=self.augment)
-            labels = load_labels(class_names=self.class_names, anno_path=self.anno_paths[index],
-                                 remove_difficult=False).copy()
-            if labels.size:
-                labels[:, 1:] = xywhn2xyxy(labels[:, 1:], w, h)
+        mosaic = self.mosaic and random.random() < hyp["mosaic"]
+        if mosaic:
+            img, labels = self.load_mosaic(index)
+            shapes = None
 
-            img, labels = self.random_perspective(img, labels,
-                                                  degrees=hyp['degrees'],
-                                                  translate=hyp['translate'],
-                                                  scale=hyp['scale'],
-                                                  shear=hyp['shear'],
-                                                  perspective=hyp['perspective'])
-
-            # hsv的增强
-            self.augment_hsv(img, hgain=hyp['hsv_h'], sgain=hyp['hsv_s'], vgain=hyp['hsv_v'])
+            # MixUp https://arxiv.org/pdf/1710.09412.pdf
+            if random.random() < self.hyp["mixup"]:
+                img2, labels2 = self.load_mosaic(random.randint(0, self.length - 1))
+                img, labels = self.mixup(img, labels, img2, labels2)
 
         else:
             # load img
@@ -71,7 +68,7 @@ class YOLODataset(Dataset):
 
             # letterbox
             shape = self.input_shape
-            img, ratio, pad = self.letterbox(img, shape, auto=True, scaleup=self.augment)
+            img, ratio, pad = self.letterbox(img, shape, auto=False, scaleup=self.augment)
             shapes = (h0, w0), ((h / h0, w / w0), pad)
 
             labels = load_labels(class_names=self.class_names, anno_path=self.anno_paths[index], remove_difficult=False).copy()
@@ -81,9 +78,23 @@ class YOLODataset(Dataset):
             if labels.size:
                 labels[:, 1:] = xywhn2xyxy(labels[:, 1:], ratio[0] * w, ratio[1] * h, padw=pad[0], padh=pad[1])
 
+        if self.augment:
+            # 进行了mosaic(内部有随机仿射),就不需要再进行一次随机仿射
+            if not mosaic:
+                img, labels = self.random_perspective(img, labels,
+                                                 degrees=hyp['degrees'],
+                                                 translate=hyp['translate'],
+                                                 scale=hyp['scale'],
+                                                 shear=hyp['shear'],
+                                                 perspective=hyp['perspective'])
+
+            # hsv的增强
+            self.augment_hsv(img, hgain=hyp['hsv_h'], sgain=hyp['hsv_s'], vgain=hyp['hsv_v'])
 
         # 标签恢复成yolo格式
         num_labels = len(labels)
+        # labels[:, [1, 3]] = np.clip(labels[:, [1, 3]], 0, img.shape[1])
+        # labels[:, [2, 4]] = np.clip(labels[:, [2, 4]], 0, img.shape[0])
         if num_labels:
             labels[:, 1:5] = xyxy2xywh(labels[:, 1:5])  # convert xyxy to xywh
             labels[:, [2, 4]] /= img.shape[0]  # normalized height 0-1
@@ -104,20 +115,80 @@ class YOLODataset(Dataset):
                     # 归一化x翻转
                     labels[:, 1] = 1 - labels[:, 1]
 
-        # [num_targets, cls_ind+nx+ny+nw+nh] -> [num_targets, batch_ind+cls_ind+nx+ny+nw+nh]
+        # # 增加图像在一个批量中的批次索引,与一个批量的预测结果保持一致,便于计算loss
         labels_out = torch.zeros((num_labels, 6))
         if num_labels:
+            # [num_targets, cls_ind+nx+ny+nw+nh] -> [num_targets, batch_ind+cls_ind+nx+ny+nw+nh]
             labels_out[:, 1:] = torch.from_numpy(labels)
+
+        # (num_targets, cls_idm+x+y+w+h)
+        # labels_out = labels
 
         # img Convert
         img = img[:, :, ::-1].transpose(2, 0, 1)  # BGR to RGB, to 3x640x640
         img = np.ascontiguousarray(img)
 
-        return torch.from_numpy(img), labels_out
+        # 任何tensor都要转换成float32类型
+        return torch.from_numpy(img).float(), labels_out.float()
 
     #-----------------------------------------------------------#
-    # 数据增强方式: random_perspective, augment_hsv
+    # 数据增强
     #-----------------------------------------------------------#
+
+    # mosaic数据增强方式
+    def load_mosaic(self, index):
+
+        yc, xc = (int(random.uniform(-x, 2 * self.input_shape + x)) for x in self.mosaic_border)
+
+        index4 = [index] + random.sample(self.indices, 3)
+
+        labels4 = []
+
+        for i, index in enumerate(index4):
+            img, (_, _), (h, w) = load_img(img_path=self.img_paths[index], img_size=self.input_shape, augment=self.augment)
+            labels = load_labels(class_names=self.class_names, anno_path=self.anno_paths[index], remove_difficult=False).copy()
+
+            if i == 0:
+                img4 = np.full((self.input_shape * 2, self.input_shape * 2, 3), 114, dtype=np.uint8)
+                x1a, y1a, x2a, y2a = max(xc - w, 0), max(yc - h, 0), xc, yc
+                x1b, y1b, x2b, y2b = w - (x2a - x1a), h - (y2a - y1a), w, h
+            elif i == 1:
+                x1a, y1a, x2a, y2a = xc, max(yc - h, 0), min(xc + w, self.input_shape * 2), yc
+                x1b, y1b, x2b, y2b = 0, h - (y2a - y1a), min(w, x2a - x1a), h
+            elif i == 2:
+                x1a, y1a, x2a, y2a = max(xc - w, 0), yc, xc, min(yc + h, self.input_shape * 2)
+                x1b, y1b, x2b, y2b = w - (x2a - x1a), 0, w, min(y2a - y1a, h)
+            elif i == 3:
+                x1a, y1a, x2a, y2a = xc, yc, min(w + xc, self.input_shape * 2), min(yc + h, self.input_shape * 2)
+                x1b, y1b, x2b, y2b = 0, 0, min(x2a - x1a, w), min(y2a - y1a, h)
+            # h,w
+            img4[y1a:y2a, x1a:x2a] = img[y1b:y2b, x1b:x2b]
+            padw = x1a - x1b
+            padh = y1a - y1b
+
+            # 随机仿射是对坐标的变换, 需要将xywhn2xmin+ymin+xmax+ymax
+            if labels.size:
+                labels[:, 1:] = xywhn2xyxy(labels[:, 1:], w, h, padw, padh)
+
+            # 添加格式是xyxy的标签
+            labels4.append(labels)
+
+        labels4 = np.concatenate(labels4, 0)
+
+        # 限制xy坐标范围, mosaic可能出现xy坐标超出图像边界的问题
+        for x in labels4[:, 1:]:
+            np.clip(x, 0, self.input_shape * 2, out=x)
+
+        # Augment
+        img4, labels4 = self.random_perspective(img4, labels4,
+                                                degrees=self.hyp['degrees'],
+                                                translate=self.hyp['translate'],
+                                                scale=self.hyp['scale'],
+                                                shear=self.hyp['shear'],
+                                                perspective=self.hyp['perspective'],
+                                                border=self.mosaic_border)
+
+        return img4, labels4
 
     # 通过设定高、宽的阈值，设定高宽比的阈值，设定区域面积比的阈值来筛选可以使用的框
     # eps是为了防止除以0
@@ -205,6 +276,12 @@ class YOLODataset(Dataset):
 
         return img, targets
 
+    def mixup(self, img1, label1, img2, label2):
+        r = np.random.beta(32.0, 32.0)
+        img = (img1 * r + img2 * (1 - r)).astype(np.uint8)
+        labels = np.concatenate((label1, label2), 0)
+        return img, labels
+
     def letterbox(self, img, new_shape=(640, 640), color=(114, 114, 114), auto=True, scaleFill=False, scaleup=True,
                   stride=32):
         # Resize and pad image while meeting stride-multiple constraints
@@ -251,20 +328,20 @@ class YOLODataset(Dataset):
         img_hsv = cv2.merge((cv2.LUT(hue, lut_hue), cv2.LUT(sat, lut_sat), cv2.LUT(val, lut_val))).astype(dtype)
         cv2.cvtColor(img_hsv, cv2.COLOR_HSV2BGR, dst=img)  # no return needed
 
-
-# 在这里将label改为[num_targets, batch_ind+cls_ind_+x+y+w+h]
+# 在这里将label改为[num_targets, batch_ind+cls_ind_+nx+ny+nw+nh]
 def collate_fn(batch):
     __doc__ = r"""
-     parms:
-        batch tuple (imgs, labels)
-    return:
-        imgs tensor
-        labels list of tensor [num_targets, batch_ind+cls_ind+nx+ny+nw+nh]
-    """
+        parms:
+           batch tuple (imgs, labels)
+       return:
+           imgs tensor
+           labels list of tensor [num_targets, batch_ind+cls_ind+nx+ny+nw+nh]
+       """
     img, label = zip(*batch)  # transposed
     for i, l in enumerate(label):
         l[:, 0] = i  # add target image index for build_targets()
     return torch.stack(img, 0), torch.cat(label, 0)
+
 
 if __name__ == "__main__":
     root = r"E:\datasets\yolo_dataset"
@@ -275,29 +352,41 @@ if __name__ == "__main__":
     class_names = [ 'aeroplane', 'bicycle', 'bird', 'boat', 'bottle', 'bus', 'car', 'cat', 'chair', 'cow', 'diningtable', 'dog',
          'horse', 'motorbike', 'person', 'pottedplant', 'sheep', 'sofa', 'train', 'tvmonitor' ]
 
-    train_dataset = YOLODataset(root, train_path, augment=False, class_names=class_names, hyp=hyp)
+    train_dataset = YOLODataset(root, train_path, augment=True, class_names=class_names, hyp=hyp, input_shape=640, batch_size=2)
+    batch_size = 2
+    num_workers = 4
+    train_dataloader = DataLoader(train_dataset, collate_fn=collate_fn, shuffle=True, batch_size=batch_size,
+                                  num_workers=num_workers)
 
-    img, labels = train_dataset[2]
+    for i, (img, labels) in enumerate(train_dataloader):
+        print(img.shape)
+        print(labels)
 
-    img = img
-    labels = labels
-    img = img.transpose(1, 2, 0)
+    # img, labels, shapes = train_dataset[0]
+    #
+    # img = img.numpy()
+    # labels = labels.numpy()
+    # img = img.transpose(1, 2, 0)
+    #
+    # h, w = img.shape[:2]
+    # labels[:, 2:] = xywhn2xyxy(labels[:, 2:], w, h)
+    #
+    # pts = labels[:, 2:]
+    #
+    # img1 = Image.fromarray(img).convert("RGB")
+    # draw = ImageDraw.Draw(img1)
+    #
+    # for pt in pts:
+    #     draw.polygon([(pt[0], pt[1]), (pt[2], pt[1]), (pt[2], pt[3]), (pt[0], pt[3])], outline=(255,0,0))
+    # del draw
+    #
+    # img1 = np.array(img1)
+    # # plt.imshow(img1)
+    # # plt.show()
+    #
+    # img1 = img1[:, :, ::-1]
+    # cv2.imwrite(r'E:\datasets\yolo_dataset\test1.png', img1)
 
-    h, w = img.shape[:2]
-    labels[:, 1:] = xywhn2xyxy(labels[:, 1:], w, h)
 
-    pts = labels[:, 1:]
 
-    img1 = Image.fromarray(img).convert("RGB")
-    draw = ImageDraw.Draw(img1)
 
-    for pt in pts:
-        draw.polygon([(pt[0], pt[1]), (pt[2], pt[1]), (pt[2], pt[3]), (pt[0], pt[3])], outline=(255,0,0))
-    del draw
-
-    img1 = np.array(img1)
-    # plt.imshow(img1)
-    # plt.show()
-
-    img1 = img1[:, :, ::-1]
-    cv2.imwrite(r'E:\datasets\yolo_dataset\test1.png', img1)
