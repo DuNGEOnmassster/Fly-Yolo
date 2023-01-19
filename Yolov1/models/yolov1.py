@@ -83,7 +83,7 @@ class YOLOv1(nn.Module):
         parm: 
             reg_pred tensor [B, HW, 4(tx+ty+tw+th)]
         return:
-            bbox_pred tensor [B, HW, 4(x1+y1+x2+y2)]
+            bbox_pred tensor [B, HW, 4(x+y+w+h)]
         """
         # [B, HW, 4] (tx+ty+th+tw) -> (x1+y1+x2+y2)
         # [B, HW, tx+ty] -> [B, HW, x+y] 
@@ -95,13 +95,14 @@ class YOLOv1(nn.Module):
         # [B, HW, tw+th] -> [B, HW, w+h]
         wh_pred = reg_pred[..., 2:].exp()
 
-        # xywh -> x1y1x2y2
-        x1y1_pred = xy_pred - wh_pred / 2
-        x2y2_pred = xy_pred + wh_pred / 2
-        bbox_pred = torch.cat([x1y1_pred, x2y2_pred], dim=-1)
-
-        # 上采样到输入图像大小
-        bbox_pred = bbox_pred * self.stride
+        # # xywh -> x1y1x2y2
+        # x1y1_pred = xy_pred - wh_pred / 2
+        # x2y2_pred = xy_pred + wh_pred / 2
+        # bbox_pred = torch.cat([x1y1_pred, x2y2_pred], dim=-1)
+        #
+        # # 上采样到输入图像大小
+        # bbox_pred = bbox_pred * self.stride
+        bbox_pred = torch.cat([xy_pred, wh_pred], dim=-1)
 
         return bbox_pred
     
@@ -179,7 +180,7 @@ class YOLOv1(nn.Module):
 
             # txtytwth -> x1y1x2y2
             bbox_pred = self.decode_box(reg_pred=reg_pred)
-            # x1y1x2y2 -> normalized_x1y1x2y2
+            # xywh -> normalized_xywh(nx ny nw nh)
             bbox_pred = bbox_pred / self.img_size
 
         return obj_pred, cls_pred, bbox_pred

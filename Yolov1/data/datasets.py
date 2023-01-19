@@ -95,6 +95,8 @@ class YOLODataset(Dataset):
         num_labels = len(labels)
         # labels[:, [1, 3]] = np.clip(labels[:, [1, 3]], 0, img.shape[1])
         # labels[:, [2, 4]] = np.clip(labels[:, [2, 4]], 0, img.shape[0])
+
+        # [num_targets, cls_ind + x1 + y1 + x2 + y2] -> [num_targets, cls_ind + nx + ny + nw + nh]
         if num_labels:
             labels[:, 1:5] = xyxy2xywh(labels[:, 1:5])  # convert xyxy to xywh
             labels[:, [2, 4]] /= img.shape[0]  # normalized height 0-1

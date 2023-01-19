@@ -70,7 +70,7 @@ class CreateTargets():
     def build_target_with_anchors(self, target, num_anchors, multi_anchor=False):
         batch_ind = target[0]
         img_h, img_w = self.image_size
-
+        # 恢复到原图像大小
         gt_box = torch.from_numpy(np.array([0, 0, target[4] * img_w, target[5] * img_h]))
         anchor_boxes = self.set_anchors()
 

@@ -63,3 +63,14 @@ def loss(pred_conf, pred_cls, pred_txtytwth, label):
     total_loss = conf_loss + cls_loss + bbox_loss
 
     return conf_loss, cls_loss, bbox_loss, total_loss
+
+class Criterion():
+    def __init__(self, pred_cls, pred_obj, pred_bbox, targets):
+        super(Criterion, self).__init__()
+        self.pred_cls = pred_cls
+        self.pred_obj = pred_obj
+        self.pred_bbox = pred_bbox
+        self.targets = targets
+
+    def criterion(self):
+        pass
