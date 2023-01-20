@@ -122,10 +122,11 @@ class CreateTargets():
 
         return position_target
 
-    def create_targets(self, center_sample=False):
+    def create_targets(self, batch_size, center_sample=False):
+        # 训练时传入预测值的batch_size
 
         img_h, img_w = self.image_size
-        batch_size = self.labels.shape[0]
+
         y_trues = []
         num_stride = len(self.strides)
         num_anchor_of_one_layer = len(self.anchors) // num_stride if self.anchors is not None else 1

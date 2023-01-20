@@ -183,4 +183,4 @@ class YOLOv1(nn.Module):
             # xywh -> normalized_xywh(nx ny nw nh)
             bbox_pred = bbox_pred / self.img_size
 
-        return obj_pred, cls_pred, bbox_pred
+            return obj_pred, cls_pred, bbox_pred
