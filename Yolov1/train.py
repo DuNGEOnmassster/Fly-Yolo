@@ -18,7 +18,7 @@ import torchvision
 import tools
 
 from models.darknet53 import Darknet53
-
+from utils.process_dataset import load_data
 
 def parse_args():
     parser = argparse.ArgumentParser(description='YOLOv1')
@@ -69,39 +69,6 @@ def set_lr(optimizer, lr):
         param_group['lr'] = lr
 
 
-def load_data(batch_size, train_split, valid_split, device, args):
-    torch.manual_seed(args.random_seed)
-    # get train loader and origin loader
-    train_loader = torch.utils.data.DataLoader(
-        torchvision.datasets.MNIST(args.dataset, train=True,
-                                transform=torchvision.transforms.Compose([
-                                    torchvision.transforms.ToTensor(),
-                                    torchvision.transforms.Normalize(
-                                        (0.1307,), (0.3081,))
-                                ])),
-        batch_size=args.batch_size_train, shuffle=True)
-    origin_loader = torch.utils.data.DataLoader(
-        torchvision.datasets.MNIST(args.dataset, train=False,
-                                transform=torchvision.transforms.Compose([
-                                    torchvision.transforms.ToTensor(),
-                                    torchvision.transforms.Normalize(
-                                        (0.1307,), (0.3081,))
-                                ])),
-        batch_size=args.batch_size_test, shuffle=True)
-
-    # generate valid dataset and test dataset from origin dataset
-    origin_dataset = origin_loader.dataset
-    # origin_dataset = np.random.shuffle(origin_dataset)
-    valid_split = args.valid_split
-    valid_dataset,test_dataset = torch.utils.data.random_split(origin_dataset,[int(len(origin_dataset)*valid_split), len(origin_dataset) - int(len(origin_dataset)*valid_split)])
-
-    # get valid loader and test loader
-    valid_loader = torch.utils.data.DataLoader(valid_dataset, batch_size = args.batch_size_test, shuffle = True, num_workers = 0)
-    test_loader = torch.utils.data.DataLoader(test_dataset, batch_size = args.batch_size_test, shuffle = True, num_workers = 0)
-
-    return train_loader, valid_loader, test_loader
-
-
 def train():
     # args init
     args = parse_args()
@@ -111,6 +78,11 @@ def train():
     # load_data
     train_loader, valid_loader, test_loader = load_data(args.batch_size, args.train_split, args.valid_split, device, args)
 
+    print(train_loader.dataset)
+    print(valid_loader.dataset.dataset, "\nLength of valid loader: ", len(valid_loader))
+    print(test_loader.dataset.dataset, "\nLength of test loader: ", len(test_loader))
+    print(valid_loader.dataset[1][1])
+    print(test_loader.dataset[1][1])
     # # tricks init
     # criterion = nn.CrossEntropyLoss()
     # # early_stopping = EarlyStopping(args.patient, verbose=False)
