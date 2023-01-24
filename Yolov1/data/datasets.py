@@ -348,10 +348,10 @@ def collate_fn(batch):
 
 
 if __name__ == "__main__":
-    chosen_pathset = "pathset2"
+    chosen_pathset = "pathset1"
     root = pathset[chosen_pathset]["root"]
     train_path = pathset[chosen_pathset]["train_path"]
-    f_hyp = open("configure/hyp.yaml", 'r')
+    f_hyp = open("../configure/hyp.yaml", 'r')
     # yaml将文件load成字典
     hyp = yaml.load(f_hyp, Loader=yaml.SafeLoader)
     class_names = [ 'aeroplane', 'bicycle', 'bird', 'boat', 'bottle', 'bus', 'car', 'cat', 'chair', 'cow', 'diningtable', 'dog',
