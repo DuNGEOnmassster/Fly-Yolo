@@ -2,8 +2,11 @@
 
 import os
 import shutil
+from utils.path import pathset
 
-dataset_path = "/Volumes/NormanZ_980/Dataset/Object_Detection_Dataset/VOCdevkit/VOC2012/"
+# 数据集路径
+chosen_pathset = "pathset1"
+dataset_path = pathset[chosen_pathset]["root"]
 
 ann_filepath = dataset_path + '/Annotations/'#origianl dataset directory
 img_filepath = dataset_path + '/JPEGImages/'#origianl dataset directory

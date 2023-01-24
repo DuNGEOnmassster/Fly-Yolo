@@ -8,7 +8,11 @@ import xml.etree.ElementTree as ET
 import argparse
 import yaml
 
-f_coco = open(r"E:\datasets\COCO\annotations\instances_val2017.json", 'r')
+from utils.path import pathset
+
+chosen_pathset = "pathset1"
+
+f_coco = open(pathset[chosen_pathset]["coco_path"], 'r')
 json_file = json.load(f_coco)
 
 for item in json_file:
@@ -23,7 +27,7 @@ class_names = yaml.load(f_class, Loader=yaml.SafeLoader)
 
 def args():
     args = argparse.ArgumentParser()
-    args.add_argument("--output", default=r"E:\datasets\yolo_dataset\VOC2007\ImageSets\Main", help="train, val, test file store path")
+    args.add_argument("--output", default=pathset[chosen_pathset]["Imageset_main_path"], help="train, val, test file store path")
     opt = args.parse_args()
     return opt
 

@@ -346,8 +346,9 @@ def collate_fn(batch):
 
 
 if __name__ == "__main__":
-    root = pathset["pathset1"]["root"]
-    train_path = r"E:\datasets\yolo_dataset\ImageSets\Main\train.txt"
+    chosen_pathset = "pathset1"
+    root = pathset[chosen_pathset]["root"]
+    train_path = pathset[chosen_pathset]["train_path"]
     f_hyp = open("../configure/hyp.yaml", 'r')
     # yaml将文件load成字典
     hyp = yaml.load(f_hyp, Loader=yaml.SafeLoader)

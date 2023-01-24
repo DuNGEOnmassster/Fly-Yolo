@@ -2,11 +2,13 @@
 
 import os
 import random
+from utils.path import pathset
 
 random.seed(42)
 
 # 数据集路径
-root = r"E:\datasets\yolo_dataset"
+chosen_pathset = "pathset1"
+root = pathset[chosen_pathset]["root"]
 
 # 训练集 + 验证集 : 测试集 = 0.8
 train_val = 0.8

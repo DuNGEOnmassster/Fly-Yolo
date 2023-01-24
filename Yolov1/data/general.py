@@ -5,6 +5,8 @@ import xml.etree.ElementTree as ET
 import torch
 import math
 
+from utils.path import pathset
+
 def load_img_paths(root, path):
     with open(path, 'r') as f:
         items = f.readlines()
@@ -190,9 +192,10 @@ def box_iou(box1, box2):
 
 
 if __name__ == "__main__":
-    root = r"E:\datasets\yolo_dataset"
+    chosen_pathset = "pathset1"
 
-    train_path = r"E:\datasets\yolo_dataset\VOC2007\ImageSets\Main\train.txt"
+    root = pathset[chosen_pathset]["root"]
+    train_path = pathset[chosen_pathset]["train_path"]
 
     class_names = [ 'aeroplane', 'bicycle', 'bird', 'boat', 'bottle', 'bus', 'car', 'cat', 'chair', 'cow', 'diningtable', 'dog',
          'horse', 'motorbike', 'person', 'pottedplant', 'sheep', 'sofa', 'train', 'tvmonitor' ]
