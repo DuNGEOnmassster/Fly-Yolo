@@ -4,6 +4,8 @@ import numpy as np
 import xml.etree.ElementTree as ET
 import torch
 import math
+import sys
+sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 
 from utils.path import pathset
 
@@ -192,7 +194,7 @@ def box_iou(box1, box2):
 
 
 if __name__ == "__main__":
-    chosen_pathset = "pathset1"
+    chosen_pathset = "pathset2"
 
     root = pathset[chosen_pathset]["root"]
     train_path = pathset[chosen_pathset]["train_path"]
