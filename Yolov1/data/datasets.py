@@ -19,7 +19,7 @@ from torch.utils.data.dataset import Dataset
 from torch.utils.data import DataLoader
 
 from data.general import load_img_paths, load_anno_paths, load_img, load_labels, xywhn2xyxy, xyxy2xywh
-
+from utils.path import pathset
 
 class YOLODataset(Dataset):
 
@@ -346,7 +346,7 @@ def collate_fn(batch):
 
 
 if __name__ == "__main__":
-    root = r"E:\datasets\yolo_dataset"
+    root = pathset["pathset1"]["root"]
     train_path = r"E:\datasets\yolo_dataset\ImageSets\Main\train.txt"
     f_hyp = open("../configure/hyp.yaml", 'r')
     # yaml将文件load成字典
