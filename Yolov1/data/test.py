@@ -2,10 +2,13 @@
 
 import os
 import shutil
+import sys
+sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
+
 from utils.path import pathset
 
 # 数据集路径
-chosen_pathset = "pathset1"
+chosen_pathset = "pathset2"
 dataset_path = pathset[chosen_pathset]["root"]
 
 ann_filepath = dataset_path + '/Annotations/'#origianl dataset directory

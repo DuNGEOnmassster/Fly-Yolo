@@ -3,7 +3,7 @@ pathset = {
         "root": r"E:\datasets\yolo_dataset",
         "Imageset_main_path": r"E:\datasets\yolo_dataset\VOC2007\ImageSets\Main",
         "train_path": r"E:\datasets\yolo_dataset\VOC2007\ImageSets\Main\train.txt",
-        "coco_path": r"E:\datasets\COCO\annotations\instances_val2017.json"
+        "coco_path": r"E:\datasets\COCO\annotations\instances_val2017.json",
     },
 
     "pathset2": {

@@ -1,7 +1,10 @@
 ''' divide the data into train_data, validate_data and test_data '''
 
-import os
 import random
+import os
+import sys
+sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
+
 from utils.path import pathset
 
 random.seed(42)
