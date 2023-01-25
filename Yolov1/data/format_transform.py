@@ -73,7 +73,7 @@ if __name__ == "__main__":
 
     opt = args()
 
-    root = r"E:\datasets\yolo_dataset\VOC2007"
+    root = pathset[chosen_pathset]["root"]
     img_root = os.path.join(root, "JPEGImages")
     anno_root = os.path.join(root, "Annotations")
 
