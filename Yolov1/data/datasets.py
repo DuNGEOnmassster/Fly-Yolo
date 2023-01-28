@@ -358,7 +358,7 @@ if __name__ == "__main__":
          'horse', 'motorbike', 'person', 'pottedplant', 'sheep', 'sofa', 'train', 'tvmonitor' ]
 
     train_dataset = YOLODataset(root, train_path, augment=True, class_names=class_names, hyp=hyp, input_shape=640, batch_size=2)
-    batch_size = 2
+    batch_size = 8
     num_workers = 4
     train_dataloader = DataLoader(train_dataset, collate_fn=collate_fn, shuffle=True, batch_size=batch_size,
                                   num_workers=num_workers)
