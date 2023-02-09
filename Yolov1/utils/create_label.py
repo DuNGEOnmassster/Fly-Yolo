@@ -31,7 +31,7 @@ class CreateTargets():
         """
         初始化
         """
-        self.image_size = image_size
+        self.image_size = (image_size, image_size)
         self.anchors = anchors
         self.strides = strides
         self.labels = labels
@@ -80,7 +80,7 @@ class CreateTargets():
         if multi_anchor:
             # Truth table
             IoU_mask = (IoU > 0.5)
-            print(IoU_mask)
+            # print(IoU_mask)
             if IoU_mask.sum() == 0:
                 IoU_ind = torch.argmax(IoU)
                 stride_ind = IoU_ind // num_anchors
@@ -149,7 +149,7 @@ class CreateTargets():
 
             for position in position_target:
                 stride_ind, batch_ind, anchor_ind, grid_x, grid_y = position
-                print(position)
+                # print(position)
 
                 if center_sample:
                     # We consider four grid points near the center point
@@ -165,18 +165,20 @@ class CreateTargets():
                                 y_trues[stride_ind][batch_ind, anchor_ind, j, i, 5] = box_scale
                                 # cls_ind
                                 y_trues[stride_ind][batch_ind, anchor_ind, j, i, cls_ind + 6] = 1
+                                # y_trues[stride_ind][batch_ind, anchor_ind, j, i, 6] = cls_ind
                 else:
                     # We only consider top-left grid point near the center point
                     if (grid_y >= 0 and grid_y < y_trues[stride_ind].shape[2]) and (
                             grid_x >= 0 and grid_x < y_trues[stride_ind].shape[3]):
                         # confidence
                         y_trues[stride_ind][batch_ind, anchor_ind, grid_y, grid_x, 0] = 1
-                        # class_ind
-                        y_trues[stride_ind][batch_ind, anchor_ind, grid_y, grid_x, 1:5] = label[2:]
                         # nx+ny+nw+nh
-                        y_trues[stride_ind][batch_ind, anchor_ind, grid_y, grid_x, 5] = box_scale
+                        y_trues[stride_ind][batch_ind, anchor_ind, grid_y, grid_x, 1:5] = label[2:]
                         # box_scale
+                        y_trues[stride_ind][batch_ind, anchor_ind, grid_y, grid_x, 5] = box_scale
+                        # cls_ind
                         y_trues[stride_ind][batch_ind, anchor_ind, grid_y, grid_x, cls_ind + 6] = 1
+                        # y_trues[stride_ind][batch_ind, anchor_ind, grid_y, grid_x, 6] = cls_ind
 
         y_trues = [y_true.reshape(batch_size, -1, self.box_attr) for y_true in y_trues]
         y_trues = np.concatenate(y_trues, axis=1)

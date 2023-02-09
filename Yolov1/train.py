@@ -8,58 +8,66 @@ import argparse
 import os
 import time
 import math
-
 import torch
+import yaml
 import torch.nn as nn
 import torch.optim as optim
-from torch.optim.lr_scheduler import CosineAnnealingLR
-import torchvision
-# from pytorchtools import EarlyStopping
-import tools
+from data.general import get_anchors
+from torch.utils.data import DataLoader
 
-from models.darknet53 import Darknet53
-from utils.process_dataset import load_data
+from models.yolov1 import YOLOv1
+from data.datasets import YOLODataset, collate_fn
+from utils.create_label import CreateTargets
+from utils.loss import Criterion
 
 def parse_args():
     parser = argparse.ArgumentParser(description='YOLOv1')
-    parser.add_argument("-d", "--dataset", default="/Volumes/NormanZ_980/Dataset/Object_Detection_Dataset/VOCdevkit/VOC2012/JPEGImages", 
-                        help="folder where origin input img data set")
-    parser.add_argument("-o", "--model_weight", default="./../model_weight/",
-                        help="folder where to save model after trainning")
-
-    parser.add_argument("--train_split", default=0.8, type=float,
-                        help="how much data is used for trainning")
-    parser.add_argument("--valid_split", default=0.1, type=float,
-                        help="how much data is used for validing")
+    parser.add_argument("--weights_path", default="",
+                        help="initial weights path")
+    parser.add_argument("--augment", default=False,
+                        help="open data augment during training")
+    parser.add_argument("--hyp", default="./configure/hyp.yaml",
+                        help="the hyperparameter configure of dataset and loss")
+    parser.add_argument("--class_names", default="./configure/VOC_classes.yaml",
+                        help="the classes of dataset")
+    parser.add_argument("--root", default=r"E:\datasets\yolo_dataset",
+                        help="dataset root path")
+    parser.add_argument("--train_path", default=r"E:\datasets\yolo_dataset\ImageSets\Main\train.txt",
+                        help="the train dataset path")
+    parser.add_argument("--val_path", default=r"E:\datasets\yolo_dataset\ImageSets\Main\val.txt",
+                        help="the val dataset path")
+    parser.add_argument("--test_path", default=r"E:\datasets\yolo_dataset\ImageSets\Main\test.txt",
+                        help="the test dataset path")
+    parser.add_argument("--input_shape", type=int, default="640",
+                        help="image size during training")
     parser.add_argument("--epoch", default=50, type=int,
                         help="how many epochs in total for trainning")
-    parser.add_argument("--batch_size_train", type=int, default=64,
-                        help="declare batch size of train_loader")
-    parser.add_argument("--batch_size_test", type=int, default=1000,
-                        help="declare batch size of test_loader")
-    # parser.add_argument("--valid_split", type=float, default=0.3,
-    #                     help="declare proportion of valid in test_loader split")
-
     parser.add_argument('-ms', '--multi_scale', action='store_true', default=False,
-                        help='use multi-scale trick')                  
-    parser.add_argument('--batch_size', default=32, type=int, 
-                        help='Batch size for training')
+                        help='use multi-scale trick')
     parser.add_argument('--lr', default=1e-3, type=float, 
                         help='initial learning rate')
     parser.add_argument('-cos', '--cos', action='store_true', default=False,
                         help='use cos lr')
     parser.add_argument('-no_wp', '--no_warm_up', action='store_true', default=False,
                         help='yes or no to choose using warmup strategy to train')
-    parser.add_argument('--wp_epoch', default=2, type=int, 
-                        help='The upper bound of warm-up')   
-    parser.add_argument('--momentum', default=0.9, type=float, 
-                        help='Momentum value for optim')
-    parser.add_argument('--weight_decay', default=5e-4, type=float, 
-                        help='Weight decay for SGD')
-    parser.add_argument('--gamma', default=0.1, type=float, 
-                        help='Gamma update for SGD')
-    parser.add_argument("--random_seed", type=int, default=3407,
-                        help="declare random seed")
+    parser.add_argument('--wp_epoch', default=2, type=int,
+                        help='The upper bound of warm-up')
+    parser.add_argument("--epochs", type=int, default="1",
+                        help="training epochs")
+    parser.add_argument("--batch_size", type=int, default="4",
+                        help="batch size")
+    parser.add_argument("--anchors", default="",
+                        help="anchors")
+    parser.add_argument("--optim", default="sgd",
+                        help="optimizer")
+    parser.add_argument("--min_lr", type=float, default="0.0001",
+                        help="minimum learning rate")
+    parser.add_argument("--momentum", type=float, default="0.937",
+                        help="momentum of optimizer")
+    parser.add_argument("--weight_decay", type=float, default="5e-4",
+                        help="weight_decay of optimizer")
+    parser.add_argument("--center_sample", action="store_true", default=False,
+                        help="open data augment during training")
  
     return parser.parse_args()
 
@@ -72,55 +80,106 @@ def set_lr(optimizer, lr):
 def train():
     # args init
     args = parse_args()
-    # model init
+    # GPU
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-    model = Darknet53()
-    # load_data
-    train_loader, valid_loader, test_loader = load_data(args.batch_size, args.train_split, args.valid_split, device, args)
 
-    print(train_loader.dataset)
-    print(valid_loader.dataset.dataset, "\nLength of valid loader: ", len(valid_loader))
-    print(test_loader.dataset.dataset, "\nLength of test loader: ", len(test_loader))
-    print(valid_loader.dataset[1][1])
-    print(test_loader.dataset[1][1])
-    # tricks init
-    criterion = nn.CrossEntropyLoss()
-    # early_stopping = EarlyStopping(args.patient, verbose=False)
-    base_lr = args.lr
-    tmp_lr = base_lr
-    optimizer = optim.SGD(model.parameters(), 
-                            lr=args.lr, 
-                            momentum=args.momentum,
-                            weight_decay=args.weight_decay
-                            )
-    clr = CosineAnnealingLR(optimizer, T_max=15000)
-    # 
-    if args.multi_scale: # for example
-        print('use the multi-scale trick ...')
-        train_size = [640, 640]
-        val_size = [416, 416]
+    # 存在训练结果的目录
+    save_dir = r"./logs"
+    if os.path.exists(save_dir) is False:
+        os.makedirs(save_dir)
+
+    # 加载dataset和loss的配置参数
+    f_hyp = open(args.hyp, 'r')
+    hyp = yaml.load(f_hyp, Loader=yaml.SafeLoader)
+
+    # 加载anchors
+    if args.anchors != "":
+        f_anchors = open(args.anchors, 'r')
+        anchors_cfg = yaml.load(f_anchors, Loader=yaml.SafeLoader)
+        anchors = anchors_cfg["anchors"]
+        print(anchors)
     else:
-        train_size = [416, 416]
-        val_size = [416, 416]
-    
+        args.anchors = None
+
+    # 加载数据类型名称
+    f_classes = open(args.class_names)
+    class_names = yaml.load(f_classes, Loader=yaml.SafeLoader)
+    class_names = class_names["class_names"]
+    num_classes = len(class_names)
+
+    num_detect_layers = 3
+    hyp['box'] *= 3. / num_detect_layers  # scale to layers
+    hyp['cls'] *= num_classes / 80. * 3. / num_detect_layers  # scale to classes and layers
+    hyp['obj'] *= (args.input_shape / 640) ** 2 * 3. / num_detect_layers  # scale to image size and layers
+
+
+    # model init
+    model = YOLOv1(cfg=args, device=device, img_size=args.input_shape, num_classes=20, trainable=True, center_sample=args.center_sample).to(device)
+
+    if args.weights_path == "":
+        model.init_bias()
+    else:
+        model_dict = model.state_dict()
+        pretrained_dict = torch.load(args.weights_path, map_location=device)
+        load_key, no_load_key, temp_dict = [], [], {}
+        for k, v in pretrained_dict.items():
+            if k in model_dict.keys() and np.shape(model_dict[k]) == np.shape(v):
+                temp_dict[k] = v
+                load_key.append(k)
+            else:
+                no_load_key.append(k)
+        # 字典的update()
+        model_dict.update(temp_dict)
+        model.load_state_dict(model_dict)
+        #   显示没有匹配上的Key
+        print("\nSuccessful Load Key:", str(load_key)[:500], "……\nSuccessful Load Key Num:", len(load_key))
+        print("\nFail To Load Key:", str(no_load_key)[:500], "……\nFail To Load Key num:", len(no_load_key))
+        print("\n\033[1;33;44m温馨提示，head部分没有载入是正常现象，Backbone部分没有载入是错误的。\033[0m")
+
+    # 优化器
+    # sgd: 学习率lr, 最小学习率min_lr,动量momentum, 正则化权值weight_decay
+    epochs = args.epochs
+    batch_size = args.batch_size
+    base_lr = args.lr
+    optimizer = None
+    if args.optim == "sgd":
+        optimizer = optim.SGD(model.parameters(), lr=base_lr, momentum=args.momentum, weight_decay=args.weight_decay)
+
+    # 数据集--训练时数据增强augment
+    train_dataset = YOLODataset(args.root, args.train_path, args.augment, class_names, hyp, args.input_shape,
+                                batch_size)
+    val_dataset = YOLODataset(args.root, args.val_path, not args.augment, class_names, hyp, args.input_shape,
+                              batch_size)
+
+    num_workers = 4
+    train_dataloader = DataLoader(train_dataset, collate_fn=collate_fn, shuffle=True, batch_size=batch_size,
+                                  num_workers=num_workers)
+    val_dataloader = DataLoader(val_dataset, collate_fn=collate_fn, shuffle=True, batch_size=batch_size,
+                                num_workers=num_workers)
+
     # train
-    for epoch in args.epoch:
+    epoch_size = args.epoch
+    train_size = val_size = args.input_shape
+
+    for epoch in range(args.epoch):
         start_time = time.time()
         # use cos lr
         if args.cos and epoch > 20 and epoch <= args.epoch - 20:
             # use cos lr
-            tmp_lr = 0.00001 + 0.5*(base_lr-0.00001)*(1+math.cos(math.pi*(epoch-20)*1./ (args.epoch-20)))
+            tmp_lr = 0.00001 + 0.5*(base_lr-0.00001)*(1+math.cos(math.pi*(epoch-20)*1. / (args.epoch-20)))
             set_lr(optimizer, tmp_lr)
 
         elif args.cos and epoch > args.epoch - 20:
             tmp_lr = 0.00001
             set_lr(optimizer, tmp_lr)
-        
+
         # use step lr
         else:
             tmp_lr = base_lr
 
-        for iter_i, (images, targets) in enumerate(dataloader):
+        for iter_i, (images, labels) in enumerate(train_dataloader):
+
+            bs = images.shape[0]
             # WarmUp strategy for learning rate
             if not args.no_warm_up:
                 if epoch < args.wp_epoch:
@@ -131,40 +190,43 @@ def train():
                 elif epoch == args.wp_epoch and iter_i == 0:
                     tmp_lr = base_lr
                     set_lr(optimizer, tmp_lr)
-        
+
             # to device
             images = images.to(device)
 
             # multi-scale trick
             if iter_i % 10 == 0 and iter_i > 0 and args.multi_scale:
                 # randomly choose a new size
-                size = random.randint(10, 19) * 32
-                train_size = [size, size]
+                train_size = random.randint(10, 19) * 32
                 model.set_grid(train_size)
             if args.multi_scale:
                 # interpolate
                 images = torch.nn.functional.interpolate(images, size=train_size, mode='bilinear', align_corners=False)
-        
-            # make train label
-            # 存疑！！！
-            targets = [label.tolist() for label in targets]
-            targets = tools.gt_creator(input_size=train_size, stride=model.stride, label_lists=targets)
-            targets = torch.tensor(targets).float().to(device)
-            
-            # forward and loss
-            conf_loss, cls_loss, txtytwth_loss, total_loss = model(images, target=targets)
+
+            # make labels
+            cl = CreateTargets(args.input_shape, args.anchors, model.stride, labels, num_classes)
+            targets = cl.create_targets(
+                batch_size=bs,
+                center_sample=args.center_sample)
+
+            obj_pred, cls_pred, bbox_pred = model(images)
+
+            # 损失函数
+            criterion = Criterion(cls_pred, obj_pred, bbox_pred, targets, hyp)
+            total_loss, loss, loss_cls, loss_obj, loss_bbox = criterion.criterion(train_size, bs)
+            print(f"total_loss:{total_loss}")
 
             # backprop
-            total_loss.backward()        
+            total_loss.backward()
             optimizer.step()
             optimizer.zero_grad()
 
             # save model
             if (epoch + 1) % 10 == 0:
                 print('Saving state, epoch:', epoch + 1)
-                torch.save(model.state_dict(), os.path.join(args.m, 
+                torch.save(model.state_dict(), os.path.join(save_dir,
                         'yolo_' + repr(epoch + 1) + '.pth')
-                        ) 
+                        )
 
 
 if __name__ == "__main__":

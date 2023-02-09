@@ -4,8 +4,8 @@ import numpy as np
 import torch
 import torch.nn as nn
 import torchvision
-from darknet53 import Darknet53
-from common import SPP
+from models.darknet53 import Darknet53
+from models.common import SPP
 from torchsummary import summary
 
 
@@ -13,19 +13,24 @@ class YOLOv1(nn.Module):
     def __init__(self,
                 cfg=None,
                 device=None,
+                img_size=640,
                 num_classes=20,
                 trainable=False,
                 center_sample=False):
         super(YOLOv1, self).__init__()
         self.cfg = cfg
         self.devive = device
+        self.img_size = img_size
         self.num_classes = num_classes
         self.trainable = trainable
         self.center_sample = center_sample
 
         # constants
         self.feature_dim = 512
-        self.stride = 32
+        self.stride = [32]
+
+        # build grid cell
+        self.grid_xy = self.create_grids(self.img_size)
 
         # backbone
         self.backbone = Darknet53(channel=32)
@@ -35,23 +40,20 @@ class YOLOv1(nn.Module):
         )
         # detect head
         self.cls_feat = nn.Sequential(
-            nn.Conv2d(self.feature_dim, self.feature_dim, k=3, p=1, s=1),
-            nn.Conv2d(self.feature_dim, self.feature_dim, k=3, p=1, s=1),
+            nn.Conv2d(self.feature_dim, self.feature_dim, kernel_size=3, padding=1, stride=1),
+            nn.Conv2d(self.feature_dim, self.feature_dim, kernel_size=3, padding=1, stride=1),
         )
 
         self.reg_feat = nn.Sequential(
-            nn.Conv2d(self.feature_dim, self.feature_dim, k=3, p=1, s=1),
-            nn.Conv2d(self.feature_dim, self.feature_dim, k=3, p=1, s=1),
-            nn.Conv2d(self.feature_dim, self.feature_dim, k=3, p=1, s=1),
-            nn.Conv2d(self.feature_dim, self.feature_dim, k=3, p=1, s=1),
+            nn.Conv2d(self.feature_dim, self.feature_dim, kernel_size=3, padding=1, stride=1),
+            nn.Conv2d(self.feature_dim, self.feature_dim, kernel_size=3, padding=1, stride=1),
+            nn.Conv2d(self.feature_dim, self.feature_dim, kernel_size=3, padding=1, stride=1),
+            nn.Conv2d(self.feature_dim, self.feature_dim, kernel_size=3, padding=1, stride=1),
         )
 
-        self.obj_pred = nn.Conv2d(self.feature_dim, 1, k=1)
-        self.cls_pred = nn.Conv2d(self.feature_dim, self.num_classes, k=1)
-        self.reg_pred = nn.Conv2d(self.feature_dim, 4, k=1)
-
-        if self.trainable:
-            self.init_bias()
+        self.obj_pred = nn.Conv2d(self.feature_dim, 1, kernel_size=1)
+        self.cls_pred = nn.Conv2d(self.feature_dim, self.num_classes, kernel_size=1)
+        self.reg_pred = nn.Conv2d(self.feature_dim, 4, kernel_size=1)
 
 
     def init_bias(self):               
@@ -70,7 +72,8 @@ class YOLOv1(nn.Module):
             img_size tuple (img_size, img_size)
             grid_xy tensor [1, HW, 2(x+y)]
         """
-        fmp_h, fmp_w = img_size // self.stride
+        img_h = img_w = img_size
+        fmp_h, fmp_w = img_h // self.stride[0], img_w // self.stride[0]
         grid_y, grid_x = torch.meshgrid([torch.arange(fmp_h), torch.arange(fmp_w)])
         # [H, W, 2] -> [HW, 2]
         grid_xy = torch.cat([grid_x, grid_y], dim=-1).float().view(-1, 2)
@@ -170,9 +173,10 @@ class YOLOv1(nn.Module):
             obj_pred = self.obj_pred(reg_feat)
             reg_pred = self.reg_pred(reg_feat)
             cls_pred = self.cls_pred(cls_feat)
+            # print(reg_pred.shape)
 
             # [B, 1, H, W] -> [B, H, W, 1] -> [B, HW, 1]
-            obj_pred = obj_pred.permute(0, 2, 3, 1).contiguous().view(B, -1, 1)
+            obj_pred = obj_pred.permute(0, 2, 3, 1).contiguous().view(B, -1)
             # [B, C, H, W] -> [B, H, W, C] -> [B, HW, C]
             cls_pred = cls_pred.permute(0, 2, 3, 1).contiguous().view(B, -1, C)
             # [B, 4, H, W] -> [B, H, W, 4] -> [B, HW, 4]

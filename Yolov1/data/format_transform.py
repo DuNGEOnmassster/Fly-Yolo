@@ -24,7 +24,7 @@ images = json_file["images"]
 annotations = json_file["annotations"]
 categories = json_file["categories"]
 
-f_class = open("../configure/VOC_names.yaml", 'r')
+f_class = open("../configure/VOC_classes.yaml", 'r')
 class_names = yaml.load(f_class, Loader=yaml.SafeLoader)
 
 def args():

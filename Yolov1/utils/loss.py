@@ -37,16 +37,21 @@ class Criterion():
 
         # loss_bbox
         ciou = bbox_iou(pred_bbox.T, target_bbox, x1y1x2y2=False, CIoU=True)
+        ciou = ciou.reshape(batch_size, -1)
+        # print(ciou.shape)
         loss_bbox = 1.0 - ciou
         loss_bbox = loss_bbox * target_scale
         loss_bbox = (loss_bbox * target_pos).mean()
 
         # loss_cls
         loss_cls = self.BCECls(self.pred_cls, self.smooth_label(target_cls))
+        loss_cls = torch.mean(loss_cls, dim=2)
+        # print(loss_cls.shape)
         loss_cls = (loss_cls * target_pos).mean()
 
         # loss_obj
         target_obj = (1.0 - self.hyp['gr']) + self.hyp['gr'] * ciou.detach().clamp(0).type(target_pos.dtype)
+        # print(target_obj.shape)
         loss_obj = self.BCEObj(self.pred_obj, target_obj).mean()
 
         loss_cls = loss_cls * self.hyp['cls']
@@ -55,6 +60,6 @@ class Criterion():
 
         loss = loss_cls + loss_obj + loss_bbox
 
-        batch_loss = loss * batch_size
+        total_loss = loss * batch_size
 
-        return batch_loss, loss, loss_cls, loss_obj, loss_bbox
+        return total_loss, loss, loss_cls, loss_obj, loss_bbox
