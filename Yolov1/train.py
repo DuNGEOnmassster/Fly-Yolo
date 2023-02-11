@@ -20,6 +20,7 @@ from models.yolov1 import YOLOv1
 from data.datasets import YOLODataset, collate_fn
 from utils.create_label import CreateTargets
 from utils.loss import Criterion
+from utils.path import pathset
 
 def parse_args():
     parser = argparse.ArgumentParser(description='YOLOv1')
@@ -39,6 +40,8 @@ def parse_args():
                         help="the val dataset path")
     parser.add_argument("--test_path", default="/Volumes/NormanZ_980/Dataset/Object_Detection_Dataset/VOCdevkit/VOC2012/ImageSets/Main/test.txt",
                         help="the test dataset path")
+    parser.add_argument("--save_path", default="./logs",
+                        help="the model save path")
     parser.add_argument("--input_shape", type=int, default="640",
                         help="image size during training")
     parser.add_argument("--epoch", default=50, type=int,
@@ -78,14 +81,12 @@ def set_lr(optimizer, lr):
         param_group['lr'] = lr
 
 
-def train():
-    # args init
-    args = parse_args()
+def train(args):
     # GPU
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
     # 存在训练结果的目录
-    save_dir = "./logs"
+    save_dir = args.save_path
     if os.path.exists(save_dir) is False:
         os.makedirs(save_dir)
 
@@ -244,4 +245,13 @@ def train():
 
 
 if __name__ == "__main__":
-    train()
+    args = parse_args()
+
+    chosen_pathset = "pathset2"
+
+    args.root = pathset[chosen_pathset]["root"]
+    args.train_path = pathset[chosen_pathset]["train_path"]
+    args.val_path = pathset[chosen_pathset]["val_path"]
+    args.test_path = pathset[chosen_pathset]["test_path"]
+
+    train(args)
