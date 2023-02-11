@@ -30,13 +30,13 @@ def parse_args():
                         help="the hyperparameter configure of dataset and loss")
     parser.add_argument("--class_names", default="./configure/VOC_classes.yaml",
                         help="the classes of dataset")
-    parser.add_argument("--root", default=r"E:\datasets\yolo_dataset",
+    parser.add_argument("--root", default="/Volumes/NormanZ_980/Dataset/Object_Detection_Dataset/VOCdevkit/VOC2012",
                         help="dataset root path")
-    parser.add_argument("--train_path", default=r"E:\datasets\yolo_dataset\ImageSets\Main\train.txt",
+    parser.add_argument("--train_path", default="/Volumes/NormanZ_980/Dataset/Object_Detection_Dataset/VOCdevkit/VOC2012/ImageSets/Main/train.txt",
                         help="the train dataset path")
-    parser.add_argument("--val_path", default=r"E:\datasets\yolo_dataset\ImageSets\Main\val.txt",
+    parser.add_argument("--val_path", default="/Volumes/NormanZ_980/Dataset/Object_Detection_Dataset/VOCdevkit/VOC2012/ImageSets/Main/val.txt",
                         help="the val dataset path")
-    parser.add_argument("--test_path", default=r"E:\datasets\yolo_dataset\ImageSets\Main\test.txt",
+    parser.add_argument("--test_path", default="/Volumes/NormanZ_980/Dataset/Object_Detection_Dataset/VOCdevkit/VOC2012/ImageSets/Main/test.txt",
                         help="the test dataset path")
     parser.add_argument("--input_shape", type=int, default="640",
                         help="image size during training")
@@ -84,7 +84,7 @@ def train():
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
     # 存在训练结果的目录
-    save_dir = r"./logs"
+    save_dir = "./logs"
     if os.path.exists(save_dir) is False:
         os.makedirs(save_dir)
 
@@ -134,7 +134,7 @@ def train():
         #   显示没有匹配上的Key
         print("\nSuccessful Load Key:", str(load_key)[:500], "……\nSuccessful Load Key Num:", len(load_key))
         print("\nFail To Load Key:", str(no_load_key)[:500], "……\nFail To Load Key num:", len(no_load_key))
-        print("\n\033[1;33;44m温馨提示，head部分没有载入是正常现象，Backbone部分没有载入是错误的。\033[0m")
+        print("\n\033[1;33;44m温馨提示, head部分没有载入是正常现象, Backbone部分没有载入是错误的。\033[0m")
 
     # 优化器
     # sgd: 学习率lr, 最小学习率min_lr,动量momentum, 正则化权值weight_decay
@@ -179,6 +179,8 @@ def train():
 
         for iter_i, (images, labels) in enumerate(train_dataloader):
 
+            import pdb; pdb.set_trace()
+
             bs = images.shape[0]
             # WarmUp strategy for learning rate
             if not args.no_warm_up:
@@ -214,7 +216,7 @@ def train():
             # 损失函数
             criterion = Criterion(cls_pred, obj_pred, bbox_pred, targets, hyp)
             total_loss, loss, loss_cls, loss_obj, loss_bbox = criterion.criterion(train_size, bs)
-            print(f"total_loss:{total_loss}")
+            print(f"Epoch{epoch}: iter_i: {iter_i} total_loss:{total_loss}")
 
             # backprop
             total_loss.backward()

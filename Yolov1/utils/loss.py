@@ -36,7 +36,7 @@ class Criterion():
         target_bbox = target_bbox * img_size
 
         # loss_bbox
-        ciou = bbox_iou(pred_bbox.T, target_bbox, x1y1x2y2=False, CIoU=True)
+        ciou = bbox_iou(pred_bbox.mT, target_bbox, x1y1x2y2=False, CIoU=True)
         ciou = ciou.reshape(batch_size, -1)
         # print(ciou.shape)
         loss_bbox = 1.0 - ciou
