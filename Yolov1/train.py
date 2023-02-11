@@ -10,6 +10,7 @@ import time
 import math
 import torch
 import yaml
+from tqdm import tqdm
 import torch.nn as nn
 import torch.optim as optim
 from data.general import get_anchors
@@ -162,73 +163,84 @@ def train():
     train_size = val_size = args.input_shape
 
     for epoch in range(args.epoch):
-        start_time = time.time()
-        # use cos lr
-        if args.cos and epoch > 20 and epoch <= args.epoch - 20:
+        with tqdm(range(len(train_dataloader))) as pbar:
+            start_time = time.time()
             # use cos lr
-            tmp_lr = 0.00001 + 0.5*(base_lr-0.00001)*(1+math.cos(math.pi*(epoch-20)*1. / (args.epoch-20)))
-            set_lr(optimizer, tmp_lr)
+            if args.cos and epoch > 20 and epoch <= args.epoch - 20:
+                # use cos lr
+                tmp_lr = 0.00001 + 0.5*(base_lr-0.00001)*(1+math.cos(math.pi*(epoch-20)*1. / (args.epoch-20)))
+                set_lr(optimizer, tmp_lr)
 
-        elif args.cos and epoch > args.epoch - 20:
-            tmp_lr = 0.00001
-            set_lr(optimizer, tmp_lr)
+            elif args.cos and epoch > args.epoch - 20:
+                tmp_lr = 0.00001
+                set_lr(optimizer, tmp_lr)
 
-        # use step lr
-        else:
-            tmp_lr = base_lr
+            # use step lr
+            else:
+                tmp_lr = base_lr
 
-        for iter_i, (images, labels) in enumerate(train_dataloader):
+            # for iter_i, (images, labels) in enumerate(train_dataloader):
+            for iter_i, (images, labels) in zip(pbar, train_dataloader):
 
-            import pdb; pdb.set_trace()
+                # import pdb; pdb.set_trace()
 
-            bs = images.shape[0]
-            # WarmUp strategy for learning rate
-            if not args.no_warm_up:
-                if epoch < args.wp_epoch:
-                    tmp_lr = base_lr * pow((iter_i+epoch*epoch_size)*1. / (args.wp_epoch*epoch_size), 4)
-                    # tmp_lr = 1e-6 + (base_lr-1e-6) * (iter_i+epoch*epoch_size) / (epoch_size * (args.wp_epoch))
-                    set_lr(optimizer, tmp_lr)
+                bs = images.shape[0]
+                # WarmUp strategy for learning rate
+                if not args.no_warm_up:
+                    if epoch < args.wp_epoch:
+                        tmp_lr = base_lr * pow((iter_i+epoch*epoch_size)*1. / (args.wp_epoch*epoch_size), 4)
+                        # tmp_lr = 1e-6 + (base_lr-1e-6) * (iter_i+epoch*epoch_size) / (epoch_size * (args.wp_epoch))
+                        set_lr(optimizer, tmp_lr)
 
-                elif epoch == args.wp_epoch and iter_i == 0:
-                    tmp_lr = base_lr
-                    set_lr(optimizer, tmp_lr)
+                    elif epoch == args.wp_epoch and iter_i == 0:
+                        tmp_lr = base_lr
+                        set_lr(optimizer, tmp_lr)
 
-            # to device
-            images = images.to(device)
+                # to device
+                images = images.to(device)
 
-            # multi-scale trick
-            if iter_i % 10 == 0 and iter_i > 0 and args.multi_scale:
-                # randomly choose a new size
-                train_size = random.randint(10, 19) * 32
-                model.set_grid(train_size)
-            if args.multi_scale:
-                # interpolate
-                images = torch.nn.functional.interpolate(images, size=train_size, mode='bilinear', align_corners=False)
+                # multi-scale trick
+                if iter_i % 10 == 0 and iter_i > 0 and args.multi_scale:
+                    # randomly choose a new size
+                    train_size = random.randint(10, 19) * 32
+                    model.set_grid(train_size)
+                if args.multi_scale:
+                    # interpolate
+                    images = torch.nn.functional.interpolate(images, size=train_size, mode='bilinear', align_corners=False)
 
-            # make labels
-            cl = CreateTargets(args.input_shape, args.anchors, model.stride, labels, num_classes)
-            targets = cl.create_targets(
-                batch_size=bs,
-                center_sample=args.center_sample)
+                # make labels
+                cl = CreateTargets(args.input_shape, args.anchors, model.stride, labels, num_classes)
+                targets = cl.create_targets(
+                    batch_size=bs,
+                    center_sample=args.center_sample)
 
-            obj_pred, cls_pred, bbox_pred = model(images)
+                obj_pred, cls_pred, bbox_pred = model(images)
 
-            # 损失函数
-            criterion = Criterion(cls_pred, obj_pred, bbox_pred, targets, hyp)
-            total_loss, loss, loss_cls, loss_obj, loss_bbox = criterion.criterion(train_size, bs)
-            print(f"Epoch{epoch}: iter_i: {iter_i} total_loss:{total_loss}")
+                # 损失函数
+                criterion = Criterion(cls_pred, obj_pred, bbox_pred, targets, hyp)
+                total_loss, loss, loss_cls, loss_obj, loss_bbox = criterion.criterion(train_size, bs)
+                # print(f"Epoch{epoch}: iter_i: {iter_i} total_loss:{total_loss}")
 
-            # backprop
-            total_loss.backward()
-            optimizer.step()
-            optimizer.zero_grad()
+                # backprop
+                total_loss.backward()
+                optimizer.step()
+                optimizer.zero_grad()
 
-            # save model
-            if (epoch + 1) % 10 == 0:
-                print('Saving state, epoch:', epoch + 1)
-                torch.save(model.state_dict(), os.path.join(save_dir,
-                        'yolo_' + repr(epoch + 1) + '.pth')
-                        )
+                # save model
+                if (epoch + 1) % 10 == 0:
+                    print('Saving state, epoch:', epoch + 1)
+                    torch.save(model.state_dict(), os.path.join(save_dir,
+                            'yolo_' + repr(epoch + 1) + '.pth')
+                            )
+
+                pbar.set_postfix(
+                    Total_Loss=np.round(total_loss.cpu().detach().numpy().item(), 5),
+                    CLS_Loss=np.round(loss_cls.cpu().detach().numpy().item(), 5),
+                    OBJ_Loss=np.round(loss_obj.cpu().detach().numpy().item(), 5),
+                    BBOX_Loss=np.round(loss_bbox.cpu().detach().numpy().item(), 5),
+                    EPOCH=epoch
+                )
+                pbar.update(0)
 
 
 if __name__ == "__main__":
