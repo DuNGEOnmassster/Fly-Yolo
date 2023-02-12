@@ -182,7 +182,7 @@ class YOLOv1(nn.Module):
             # [B, 4, H, W] -> [B, H, W, 4] -> [B, HW, 4]
             reg_pred = reg_pred.permute(0, 2, 3, 1).contiguous().view(B, -1, 4)
 
-            # txtytwth -> x1y1x2y2
+            # txtytwth -> xywh
             bbox_pred = self.decode_box(reg_pred=reg_pred)
             # xywh -> normalized_xywh(nx ny nw nh)
             bbox_pred = bbox_pred / self.img_size

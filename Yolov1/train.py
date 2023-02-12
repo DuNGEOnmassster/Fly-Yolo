@@ -32,13 +32,13 @@ def parse_args():
                         help="the hyperparameter configure of dataset and loss")
     parser.add_argument("--class_names", default="./configure/VOC_classes.yaml",
                         help="the classes of dataset")
-    parser.add_argument("--root", default="/Volumes/NormanZ_980/Dataset/Object_Detection_Dataset/VOCdevkit/VOC2012",
+    parser.add_argument("--root", default=r"E:\datasets\VOCdevkit2012\VOC2012",
                         help="dataset root path")
-    parser.add_argument("--train_path", default="/Volumes/NormanZ_980/Dataset/Object_Detection_Dataset/VOCdevkit/VOC2012/ImageSets/Main/train.txt",
+    parser.add_argument("--train_path", default=r"E:\datasets\VOCdevkit2012\VOC2012\ImageSets\Main\train.txt",
                         help="the train dataset path")
-    parser.add_argument("--val_path", default="/Volumes/NormanZ_980/Dataset/Object_Detection_Dataset/VOCdevkit/VOC2012/ImageSets/Main/val.txt",
+    parser.add_argument("--val_path", default=r"E:\datasets\VOCdevkit2012\VOC2012\ImageSets\Main\test.txt",
                         help="the val dataset path")
-    parser.add_argument("--test_path", default="/Volumes/NormanZ_980/Dataset/Object_Detection_Dataset/VOCdevkit/VOC2012/ImageSets/Main/test.txt",
+    parser.add_argument("--test_path", default=r"E:\datasets\VOCdevkit2012\VOC2012\ImageSets\Main\val.txt",
                         help="the test dataset path")
     parser.add_argument("--save_path", default="./logs",
                         help="the model save path")
@@ -46,29 +46,27 @@ def parse_args():
                         help="image size during training")
     parser.add_argument("--epoch", default=50, type=int,
                         help="how many epochs in total for trainning")
-    parser.add_argument('-ms', '--multi_scale', action='store_true', default=False,
+    parser.add_argument('--multi_scale', action='store_true', default=False,
                         help='use multi-scale trick')
-    parser.add_argument('--lr', default=1e-3, type=float, 
+    parser.add_argument('--lr', default=1e-3, type=float,
                         help='initial learning rate')
-    parser.add_argument('-cos', '--cos', action='store_true', default=False,
+    parser.add_argument('--cos', action='store_true', default=False,
                         help='use cos lr')
-    parser.add_argument('-no_wp', '--no_warm_up', action='store_true', default=False,
+    parser.add_argument('--no_warm_up', action='store_true', default=False,
                         help='yes or no to choose using warmup strategy to train')
     parser.add_argument('--wp_epoch', default=2, type=int,
                         help='The upper bound of warm-up')
-    parser.add_argument("--epochs", type=int, default="1",
-                        help="training epochs")
-    parser.add_argument("--batch_size", type=int, default="4",
+    parser.add_argument("--batch_size", type=int, default=8,
                         help="batch size")
     parser.add_argument("--anchors", default="",
                         help="anchors")
     parser.add_argument("--optim", default="sgd",
                         help="optimizer")
-    parser.add_argument("--min_lr", type=float, default="0.0001",
+    parser.add_argument("--min_lr", type=float, default=0.0001,
                         help="minimum learning rate")
-    parser.add_argument("--momentum", type=float, default="0.937",
+    parser.add_argument("--momentum", type=float, default=0.937,
                         help="momentum of optimizer")
-    parser.add_argument("--weight_decay", type=float, default="5e-4",
+    parser.add_argument("--weight_decay", type=float, default=5e-4,
                         help="weight_decay of optimizer")
     parser.add_argument("--center_sample", action="store_true", default=False,
                         help="open data augment during training")
@@ -93,6 +91,7 @@ def train(args):
     # 加载dataset和loss的配置参数
     f_hyp = open(args.hyp, 'r')
     hyp = yaml.load(f_hyp, Loader=yaml.SafeLoader)
+    # print(hyp)
 
     # 加载anchors
     if args.anchors != "":
@@ -108,6 +107,8 @@ def train(args):
     class_names = yaml.load(f_classes, Loader=yaml.SafeLoader)
     class_names = class_names["class_names"]
     num_classes = len(class_names)
+    # print(class_names)
+    # print(num_classes)
 
     num_detect_layers = 3
     hyp['box'] *= 3. / num_detect_layers  # scale to layers
@@ -140,7 +141,7 @@ def train(args):
 
     # 优化器
     # sgd: 学习率lr, 最小学习率min_lr,动量momentum, 正则化权值weight_decay
-    epochs = args.epochs
+    epoch = args.epoch
     batch_size = args.batch_size
     base_lr = args.lr
     optimizer = None
@@ -167,18 +168,18 @@ def train(args):
         with tqdm(range(len(train_dataloader))) as pbar:
             start_time = time.time()
             # use cos lr
-            if args.cos and epoch > 20 and epoch <= args.epoch - 20:
-                # use cos lr
-                tmp_lr = 0.00001 + 0.5*(base_lr-0.00001)*(1+math.cos(math.pi*(epoch-20)*1. / (args.epoch-20)))
-                set_lr(optimizer, tmp_lr)
-
-            elif args.cos and epoch > args.epoch - 20:
-                tmp_lr = 0.00001
-                set_lr(optimizer, tmp_lr)
-
-            # use step lr
-            else:
-                tmp_lr = base_lr
+            # if args.cos and epoch > 20 and epoch <= args.epoch - 20:
+            #     # use cos lr
+            #     tmp_lr = 0.00001 + 0.5*(base_lr-0.00001)*(1+math.cos(math.pi*(epoch-20)*1. / (args.epoch-20)))
+            #     set_lr(optimizer, tmp_lr)
+            #
+            # elif args.cos and epoch > args.epoch - 20:
+            #     tmp_lr = 0.00001
+            #     set_lr(optimizer, tmp_lr)
+            #
+            # # use step lr
+            # else:
+            #     tmp_lr = base_lr
 
             # for iter_i, (images, labels) in enumerate(train_dataloader):
             for iter_i, (images, labels) in zip(pbar, train_dataloader):
@@ -187,15 +188,15 @@ def train(args):
 
                 bs = images.shape[0]
                 # WarmUp strategy for learning rate
-                if not args.no_warm_up:
-                    if epoch < args.wp_epoch:
-                        tmp_lr = base_lr * pow((iter_i+epoch*epoch_size)*1. / (args.wp_epoch*epoch_size), 4)
-                        # tmp_lr = 1e-6 + (base_lr-1e-6) * (iter_i+epoch*epoch_size) / (epoch_size * (args.wp_epoch))
-                        set_lr(optimizer, tmp_lr)
-
-                    elif epoch == args.wp_epoch and iter_i == 0:
-                        tmp_lr = base_lr
-                        set_lr(optimizer, tmp_lr)
+                # if not args.no_warm_up:
+                #     if epoch < args.wp_epoch:
+                #         tmp_lr = base_lr * pow((iter_i+epoch*epoch_size)*1. / (args.wp_epoch*epoch_size), 4)
+                #         # tmp_lr = 1e-6 + (base_lr-1e-6) * (iter_i+epoch*epoch_size) / (epoch_size * (args.wp_epoch))
+                #         set_lr(optimizer, tmp_lr)
+                #
+                #     elif epoch == args.wp_epoch and iter_i == 0:
+                #         tmp_lr = base_lr
+                #         set_lr(optimizer, tmp_lr)
 
                 # to device
                 images = images.to(device)
@@ -219,7 +220,7 @@ def train(args):
 
                 # 损失函数
                 criterion = Criterion(cls_pred, obj_pred, bbox_pred, targets, hyp)
-                total_loss, loss, loss_cls, loss_obj, loss_bbox = criterion.criterion(train_size, bs)
+                total_loss, loss_cls, loss_obj, loss_bbox = criterion.criterion(train_size, bs)
                 # print(f"Epoch{epoch}: iter_i: {iter_i} total_loss:{total_loss}")
 
                 # backprop
@@ -247,7 +248,7 @@ def train(args):
 if __name__ == "__main__":
     args = parse_args()
 
-    chosen_pathset = "pathset2"
+    chosen_pathset = "pathset1"
 
     args.root = pathset[chosen_pathset]["root"]
     args.train_path = pathset[chosen_pathset]["train_path"]

@@ -348,16 +348,16 @@ def collate_fn(batch):
 
 
 if __name__ == "__main__":
-    chosen_pathset = "pathset2"
+    chosen_pathset = "pathset1"
     root = pathset[chosen_pathset]["root"]
     train_path = pathset[chosen_pathset]["train_path"]
-    f_hyp = open("configure/hyp.yaml", 'r')
+    f_hyp = open(r"E:\workspace\PycharmProjects\Fly-Yolo\Yolov1\configure\hyp.yaml", 'r')
     # yaml将文件load成字典
     hyp = yaml.load(f_hyp, Loader=yaml.SafeLoader)
     class_names = [ 'aeroplane', 'bicycle', 'bird', 'boat', 'bottle', 'bus', 'car', 'cat', 'chair', 'cow', 'diningtable', 'dog',
          'horse', 'motorbike', 'person', 'pottedplant', 'sheep', 'sofa', 'train', 'tvmonitor' ]
 
-    train_dataset = YOLODataset(root, train_path, augment=True, class_names=class_names, hyp=hyp, input_shape=640, batch_size=2)
+    train_dataset = YOLODataset(root, train_path, augment=True, class_names=class_names, hyp=hyp, input_shape=640, batch_size=8)
     batch_size = 8
     num_workers = 4
     train_dataloader = DataLoader(train_dataset, collate_fn=collate_fn, shuffle=True, batch_size=batch_size,

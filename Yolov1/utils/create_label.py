@@ -58,8 +58,8 @@ class CreateTargets():
 
         batch_ind, _, nx, ny, nw, nh = target
 
-        xc_s = nx * img_w / self.strides[stride_ind]
-        yc_s = ny * img_h / self.strides[stride_ind]
+        xc_s = (nx * img_w) / self.strides[stride_ind]
+        yc_s = (ny * img_h) / self.strides[stride_ind]
         grid_x = int(xc_s)
         grid_y = int(yc_s)
 
@@ -86,8 +86,8 @@ class CreateTargets():
                 stride_ind = IoU_ind // num_anchors
                 anchor_ind = IoU_ind - stride_ind * num_anchors
 
-                xc_s = target[2] * img_w / self.strides[stride_ind]
-                yc_s = target[3] * img_h / self.strides[stride_ind]
+                xc_s = (target[2] * img_w) / self.strides[stride_ind]
+                yc_s = (target[3] * img_h) / self.strides[stride_ind]
 
                 grid_x = int(xc_s)
                 grid_y = int(yc_s)
@@ -100,8 +100,8 @@ class CreateTargets():
                         stride_ind = IoU_ind // num_anchors
                         anchor_ind = IoU_ind - stride_ind * num_anchors
 
-                        xc_s = target[2] * img_w / self.strides[stride_ind]
-                        yc_s = target[3] * img_h / self.strides[stride_ind]
+                        xc_s = (target[2] * img_w) / self.strides[stride_ind]
+                        yc_s = (target[3] * img_h) / self.strides[stride_ind]
 
                         grid_x = int(xc_s)
                         grid_y = int(yc_s)
@@ -112,8 +112,8 @@ class CreateTargets():
             stride_ind = IoU_ind // num_anchors
             anchor_ind = IoU_ind - stride_ind * num_anchors
 
-            xc_s = target[2] * img_w / self.strides[stride_ind]
-            yc_s = target[3] * img_h / self.strides[stride_ind]
+            xc_s = (target[2] * img_w) / self.strides[stride_ind]
+            yc_s = (target[3] * img_h) / self.strides[stride_ind]
 
             grid_x = int(xc_s)
             grid_y = int(yc_s)
@@ -164,8 +164,8 @@ class CreateTargets():
                                 # box_scale
                                 y_trues[stride_ind][batch_ind, anchor_ind, j, i, 5] = box_scale
                                 # cls_ind
-                                y_trues[stride_ind][batch_ind, anchor_ind, j, i, cls_ind + 6] = 1
-                                # y_trues[stride_ind][batch_ind, anchor_ind, j, i, 6] = cls_ind
+                                # y_trues[stride_ind][batch_ind, anchor_ind, j, i, cls_ind + 6] = 1
+                                y_trues[stride_ind][batch_ind, anchor_ind, j, i, 6] = cls_ind
                 else:
                     # We only consider top-left grid point near the center point
                     if (grid_y >= 0 and grid_y < y_trues[stride_ind].shape[2]) and (
@@ -177,8 +177,8 @@ class CreateTargets():
                         # box_scale
                         y_trues[stride_ind][batch_ind, anchor_ind, grid_y, grid_x, 5] = box_scale
                         # cls_ind
-                        y_trues[stride_ind][batch_ind, anchor_ind, grid_y, grid_x, cls_ind + 6] = 1
-                        # y_trues[stride_ind][batch_ind, anchor_ind, grid_y, grid_x, 6] = cls_ind
+                        # y_trues[stride_ind][batch_ind, anchor_ind, grid_y, grid_x, cls_ind + 6] = 1
+                        y_trues[stride_ind][batch_ind, anchor_ind, grid_y, grid_x, 6] = cls_ind
 
         y_trues = [y_true.reshape(batch_size, -1, self.box_attr) for y_true in y_trues]
         y_trues = np.concatenate(y_trues, axis=1)
