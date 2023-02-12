@@ -354,13 +354,13 @@ def train(args):
                 images = images.to(device)
 
                 # multi-scale trick
-                if iter_i % 10 == 0 and iter_i > 0 and args.multi_scale:
-                    # randomly choose a new size
-                    val_size = random.randint(10, 19) * 32
-                    model.set_grid(val_size)
-                if args.multi_scale:
-                    # interpolate
-                    images = torch.nn.functional.interpolate(images, size=val_size, mode='bilinear', align_corners=False)
+                # if iter_i % 10 == 0 and iter_i > 0 and args.multi_scale:
+                #     # randomly choose a new size
+                #     val_size = random.randint(10, 19) * 32
+                #     model.set_grid(val_size)
+                # if args.multi_scale:
+                #     # interpolate
+                #     images = torch.nn.functional.interpolate(images, size=val_size, mode='bilinear', align_corners=False)
 
                 # make labels
                 cl = CreateTargets(val_size, args.anchors, model.stride, labels, num_classes)

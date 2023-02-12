@@ -279,7 +279,7 @@ parser.add_argument('-np',
                     help='no plot is shown during execution')
 args = parser.parse_args()
 
-def get_map(args):
+def get_voc_map(args):
 
     iouThreshold = args.iouThreshold
 
