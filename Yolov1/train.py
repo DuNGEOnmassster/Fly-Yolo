@@ -48,7 +48,7 @@ def parse_args():
                         help="how many epochs in total for trainning")
     parser.add_argument('--multi_scale', action='store_true', default=False,
                         help='use multi-scale trick')
-    parser.add_argument('--lr', default=1e-3, type=float,
+    parser.add_argument('--lr', default=1e-5, type=float,
                         help='initial learning rate')
     parser.add_argument('--cos', action='store_true', default=False,
                         help='use cos lr')
@@ -163,8 +163,11 @@ def train(args):
     # train
     epoch_size = args.epoch
     train_size = val_size = args.input_shape
+    train_losses = []
 
     for epoch in range(args.epoch):
+        train_loss = 0
+
         with tqdm(range(len(train_dataloader))) as pbar:
             start_time = time.time()
             # use cos lr
@@ -228,6 +231,8 @@ def train(args):
                 optimizer.step()
                 optimizer.zero_grad()
 
+                train_loss += total_loss.detach()
+
                 # save model
                 if (epoch + 1) % 10 == 0:
                     print('Saving state, epoch:', epoch + 1)
@@ -236,11 +241,12 @@ def train(args):
                             )
 
                 pbar.set_postfix(
+                    EPOCH=epoch,
+                    Train_Loss=np.round(train_loss.cpu().numpy().item() / (iter_i+1), 5),
                     Total_Loss=np.round(total_loss.cpu().detach().numpy().item(), 5),
                     CLS_Loss=np.round(loss_cls.cpu().detach().numpy().item(), 5),
                     OBJ_Loss=np.round(loss_obj.cpu().detach().numpy().item(), 5),
                     BBOX_Loss=np.round(loss_bbox.cpu().detach().numpy().item(), 5),
-                    EPOCH=epoch
                 )
                 pbar.update(0)
 
