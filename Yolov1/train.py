@@ -221,6 +221,12 @@ def train(args):
                 # 损失函数
                 criterion = Criterion(cls_pred, obj_pred, bbox_pred, targets, hyp)
                 total_loss, loss_cls, loss_obj, loss_bbox = criterion.criterion(train_size, bs)
+
+                total_loss = torch.mean(total_loss)
+                loss_cls = torch.mean(loss_cls)
+                loss_obj = torch.mean(loss_obj)
+                loss_bbox = torch.mean(loss_bbox)
+                
                 # print(f"Epoch{epoch}: iter_i: {iter_i} total_loss:{total_loss}")
 
                 # backprop
@@ -248,7 +254,7 @@ def train(args):
 if __name__ == "__main__":
     args = parse_args()
 
-    chosen_pathset = "pathset1"
+    chosen_pathset = "pathset2"
 
     args.root = pathset[chosen_pathset]["root"]
     args.train_path = pathset[chosen_pathset]["train_path"]
