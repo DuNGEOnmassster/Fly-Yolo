@@ -13,7 +13,15 @@ pathset = {
         "train_path": "/Volumes/NormanZ_980/Dataset/Object_Detection_Dataset/VOCdevkit/VOC2012/ImageSets/Main/train.txt",
         "test_path": "/Volumes/NormanZ_980/Dataset/Object_Detection_Dataset/VOCdevkit/VOC2012/ImageSets/Main/test.txt",
         "val_path": "/Volumes/NormanZ_980/Dataset/Object_Detection_Dataset/VOCdevkit/VOC2012/ImageSets/Main/val.txt",
-    }
+    },
+    
+    "pathset3": {
+        "root": "/home/zhengmingzhe/Super_Resolution/Reference/new/VOC2012",
+        "Imageset_main_path": "/home/zhengmingzhe/Super_Resolution/Reference/new/VOC2012/ImageSets/Main",
+        "train_path": "/home/zhengmingzhe/Super_Resolution/Reference/new/VOC2012/ImageSets/Main/train.txt",
+        "test_path": "/home/zhengmingzhe/Super_Resolution/Reference/new/VOC2012/ImageSets/Main/test.txt",
+        "val_path": "/home/zhengmingzhe/Super_Resolution/Reference/new/VOC2012/ImageSets/Main/val.txt",
+    },
 }
 
 if __name__ == "__main__":
