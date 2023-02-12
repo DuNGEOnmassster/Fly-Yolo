@@ -23,6 +23,9 @@ from utils.loss import Criterion
 from utils.path import pathset
 
 def parse_args():
+    # Get current path to set default folders
+    currentPath = os.path.dirname(os.path.abspath(__file__))
+
     parser = argparse.ArgumentParser(description='YOLOv1')
     parser.add_argument("--weights_path", default="",
                         help="initial weights path")
@@ -70,6 +73,68 @@ def parse_args():
                         help="weight_decay of optimizer")
     parser.add_argument("--center_sample", action="store_true", default=False,
                         help="open data augment during training")
+    # Positional arguments
+    # Mandatory
+    parser.add_argument('-gt',
+                        '--gtfolder',
+                        dest='gtFolder',
+                        default=os.path.join(currentPath, 'groundtruths'),
+                        metavar='',
+                        help='folder containing your ground truth bounding boxes')
+    parser.add_argument('-det',
+                        '--detfolder',
+                        dest='detFolder',
+                        default=os.path.join(currentPath, 'detections'),
+                        metavar='',
+                        help='folder containing your detected bounding boxes')
+    # Optional
+    parser.add_argument('-t',
+                        '--threshold',
+                        dest='iouThreshold',
+                        type=float,
+                        default=0.5,
+                        metavar='',
+                        help='IOU threshold. Default 0.5')
+    parser.add_argument('-gtformat',
+                        dest='gtFormat',
+                        metavar='',
+                        default='xywh',
+                        help='format of the coordinates of the ground truth bounding boxes: '
+                             '(\'xywh\': <left> <top> <width> <height>)'
+                             ' or (\'xyrb\': <left> <top> <right> <bottom>)')
+    parser.add_argument('-detformat',
+                        dest='detFormat',
+                        metavar='',
+                        default='xywh',
+                        help='format of the coordinates of the detected bounding boxes '
+                             '(\'xywh\': <left> <top> <width> <height>) '
+                             'or (\'xyrb\': <left> <top> <right> <bottom>)')
+    parser.add_argument('-gtcoords',
+                        dest='gtCoordinates',
+                        default='abs',
+                        metavar='',
+                        help='reference of the ground truth bounding box coordinates: absolute '
+                             'values (\'abs\') or relative to its image size (\'rel\')')
+    parser.add_argument('-detcoords',
+                        default='abs',
+                        dest='detCoordinates',
+                        metavar='',
+                        help='reference of the ground truth bounding box coordinates: '
+                             'absolute values (\'abs\') or relative to its image size (\'rel\')')
+    parser.add_argument('-imgsize',
+                        dest='imgSize',
+                        metavar='',
+                        help='image size. Required if -gtcoords or -detcoords are \'rel\'')
+    parser.add_argument('-sp',
+                        '--savepath',
+                        dest='savePath',
+                        metavar='',
+                        help='folder where the plots are saved')
+    parser.add_argument('-np',
+                        '--noplot',
+                        dest='showPlot',
+                        action='store_false',
+                        help='no plot is shown during execution')
  
     return parser.parse_args()
 
@@ -167,6 +232,7 @@ def train(args):
 
     for epoch in range(args.epoch):
         train_loss = 0
+        val_loss = 0
 
         with tqdm(range(len(train_dataloader))) as pbar:
             start_time = time.time()
@@ -184,10 +250,11 @@ def train(args):
             # else:
             #     tmp_lr = base_lr
 
-            # for iter_i, (images, labels) in enumerate(train_dataloader):
+            model.train()
             for iter_i, (images, labels) in zip(pbar, train_dataloader):
 
                 # import pdb; pdb.set_trace()
+                optimizer.zero_grad()
 
                 bs = images.shape[0]
                 # WarmUp strategy for learning rate
@@ -214,7 +281,7 @@ def train(args):
                     images = torch.nn.functional.interpolate(images, size=train_size, mode='bilinear', align_corners=False)
 
                 # make labels
-                cl = CreateTargets(args.input_shape, args.anchors, model.stride, labels, num_classes)
+                cl = CreateTargets(train_size, args.anchors, model.stride, labels, num_classes)
                 targets = cl.create_targets(
                     batch_size=bs,
                     center_sample=args.center_sample)
@@ -224,18 +291,11 @@ def train(args):
                 # 损失函数
                 criterion = Criterion(cls_pred, obj_pred, bbox_pred, targets, hyp)
                 total_loss, loss_cls, loss_obj, loss_bbox = criterion.criterion(train_size, bs)
-
-                total_loss = torch.mean(total_loss)
-                loss_cls = torch.mean(loss_cls)
-                loss_obj = torch.mean(loss_obj)
-                loss_bbox = torch.mean(loss_bbox)
-                
                 # print(f"Epoch{epoch}: iter_i: {iter_i} total_loss:{total_loss}")
 
                 # backprop
                 total_loss.backward()
                 optimizer.step()
-                optimizer.zero_grad()
 
                 train_loss += total_loss.detach()
 
@@ -256,11 +316,89 @@ def train(args):
                 )
                 pbar.update(0)
 
+        with tqdm(range(len(val_dataloader))) as var_pbar:
+            start_time = time.time()
+            # use cos lr
+            # if args.cos and epoch > 20 and epoch <= args.epoch - 20:
+            #     # use cos lr
+            #     tmp_lr = 0.00001 + 0.5*(base_lr-0.00001)*(1+math.cos(math.pi*(epoch-20)*1. / (args.epoch-20)))
+            #     set_lr(optimizer, tmp_lr)
+            #
+            # elif args.cos and epoch > args.epoch - 20:
+            #     tmp_lr = 0.00001
+            #     set_lr(optimizer, tmp_lr)
+            #
+            # # use step lr
+            # else:
+            #     tmp_lr = base_lr
+
+            model.eval()
+            for iter_i, (images, labels) in zip(var_pbar, val_dataloader):
+
+                # import pdb; pdb.set_trace()
+                optimizer.zero_grad()
+
+                bs = images.shape[0]
+                # WarmUp strategy for learning rate
+                # if not args.no_warm_up:
+                #     if epoch < args.wp_epoch:
+                #         tmp_lr = base_lr * pow((iter_i+epoch*epoch_size)*1. / (args.wp_epoch*epoch_size), 4)
+                #         # tmp_lr = 1e-6 + (base_lr-1e-6) * (iter_i+epoch*epoch_size) / (epoch_size * (args.wp_epoch))
+                #         set_lr(optimizer, tmp_lr)
+                #
+                #     elif epoch == args.wp_epoch and iter_i == 0:
+                #         tmp_lr = base_lr
+                #         set_lr(optimizer, tmp_lr)
+
+                # to device
+                images = images.to(device)
+
+                # multi-scale trick
+                if iter_i % 10 == 0 and iter_i > 0 and args.multi_scale:
+                    # randomly choose a new size
+                    val_size = random.randint(10, 19) * 32
+                    model.set_grid(val_size)
+                if args.multi_scale:
+                    # interpolate
+                    images = torch.nn.functional.interpolate(images, size=val_size, mode='bilinear', align_corners=False)
+
+                # make labels
+                cl = CreateTargets(val_size, args.anchors, model.stride, labels, num_classes)
+                targets = cl.create_targets(
+                    batch_size=bs,
+                    center_sample=args.center_sample)
+
+                obj_pred, cls_pred, bbox_pred = model(images)
+
+                # 损失函数
+                criterion = Criterion(cls_pred, obj_pred, bbox_pred, targets, hyp)
+                total_loss, loss_cls, loss_obj, loss_bbox = criterion.criterion(val_size, bs)
+                # print(f"Epoch{epoch}: iter_i: {iter_i} total_loss:{total_loss}")
+
+                val_loss += total_loss.detach()
+
+                # save model
+                if (epoch + 1) % 10 == 0:
+                    print('Saving state, epoch:', epoch + 1)
+                    torch.save(model.state_dict(), os.path.join(save_dir,
+                            'yolo_' + repr(epoch + 1) + '.pth')
+                            )
+
+                var_pbar.set_postfix(
+                    EPOCH=epoch,
+                    val_Loss=np.round(val_loss.cpu().numpy().item() / (iter_i+1), 5),
+                    Total_Loss=np.round(total_loss.cpu().detach().numpy().item(), 5),
+                    CLS_Loss=np.round(loss_cls.cpu().detach().numpy().item(), 5),
+                    OBJ_Loss=np.round(loss_obj.cpu().detach().numpy().item(), 5),
+                    BBOX_Loss=np.round(loss_bbox.cpu().detach().numpy().item(), 5),
+                )
+                var_pbar.update(0)
+
 
 if __name__ == "__main__":
     args = parse_args()
 
-    chosen_pathset = "pathset2"
+    chosen_pathset = "pathset1"
 
     args.root = pathset[chosen_pathset]["root"]
     args.train_path = pathset[chosen_pathset]["train_path"]
