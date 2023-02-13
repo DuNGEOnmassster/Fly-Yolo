@@ -36,7 +36,7 @@ class CreateTargets():
         self.strides = strides
         self.labels = labels
         self.num_class = num_class
-        self.box_attr = 1 + 4 + 1 + num_class
+        self.box_attr = 1 + 4 + 1 + 1
     
     def set_anchors(self):
         anchors = np.array(self.anchors)

@@ -21,6 +21,7 @@ from data.datasets import YOLODataset, collate_fn
 from utils.create_label import CreateTargets
 from utils.loss import Criterion
 from utils.path import pathset
+from core import evaluate_api
 
 def parse_args():
     # Get current path to set default folders
@@ -73,6 +74,10 @@ def parse_args():
                         help="weight_decay of optimizer")
     parser.add_argument("--center_sample", action="store_true", default=False,
                         help="open data augment during training")
+    parser.add_argument('--conf_thresh', default=0.001, type=float,
+                        help='NMS threshold')
+    parser.add_argument('--nms_thresh', default=0.5, type=float,
+                        help='NMS threshold')
     # Positional arguments
     # Mandatory
     parser.add_argument('-gt',
@@ -335,64 +340,73 @@ def train(args):
             model.eval()
             for iter_i, (images, labels) in zip(var_pbar, val_dataloader):
 
-                # import pdb; pdb.set_trace()
-                optimizer.zero_grad()
+                with torch.no_grad():
 
-                bs = images.shape[0]
-                # WarmUp strategy for learning rate
-                # if not args.no_warm_up:
-                #     if epoch < args.wp_epoch:
-                #         tmp_lr = base_lr * pow((iter_i+epoch*epoch_size)*1. / (args.wp_epoch*epoch_size), 4)
-                #         # tmp_lr = 1e-6 + (base_lr-1e-6) * (iter_i+epoch*epoch_size) / (epoch_size * (args.wp_epoch))
-                #         set_lr(optimizer, tmp_lr)
-                #
-                #     elif epoch == args.wp_epoch and iter_i == 0:
-                #         tmp_lr = base_lr
-                #         set_lr(optimizer, tmp_lr)
+                    optimizer.zero_grad()
 
-                # to device
-                images = images.to(device)
+                    bs = images.shape[0]
+                    # WarmUp strategy for learning rate
+                    # if not args.no_warm_up:
+                    #     if epoch < args.wp_epoch:
+                    #         tmp_lr = base_lr * pow((iter_i+epoch*epoch_size)*1. / (args.wp_epoch*epoch_size), 4)
+                    #         # tmp_lr = 1e-6 + (base_lr-1e-6) * (iter_i+epoch*epoch_size) / (epoch_size * (args.wp_epoch))
+                    #         set_lr(optimizer, tmp_lr)
+                    #
+                    #     elif epoch == args.wp_epoch and iter_i == 0:
+                    #         tmp_lr = base_lr
+                    #         set_lr(optimizer, tmp_lr)
 
-                # multi-scale trick
-                # if iter_i % 10 == 0 and iter_i > 0 and args.multi_scale:
-                #     # randomly choose a new size
-                #     val_size = random.randint(10, 19) * 32
-                #     model.set_grid(val_size)
-                # if args.multi_scale:
-                #     # interpolate
-                #     images = torch.nn.functional.interpolate(images, size=val_size, mode='bilinear', align_corners=False)
+                    # to device
+                    images = images.to(device)
 
-                # make labels
-                cl = CreateTargets(val_size, args.anchors, model.stride, labels, num_classes)
-                targets = cl.create_targets(
-                    batch_size=bs,
-                    center_sample=args.center_sample)
+                    # multi-scale trick
+                    # if iter_i % 10 == 0 and iter_i > 0 and args.multi_scale:
+                    #     # randomly choose a new size
+                    #     val_size = random.randint(10, 19) * 32
+                    #     model.set_grid(val_size)
+                    # if args.multi_scale:
+                    #     # interpolate
+                    #     images = torch.nn.functional.interpolate(images, size=val_size, mode='bilinear', align_corners=False)
 
-                obj_pred, cls_pred, bbox_pred = model(images)
+                    # make labels
+                    cl = CreateTargets(val_size, args.anchors, model.stride, labels, num_classes)
+                    targets = cl.create_targets(
+                        batch_size=bs,
+                        center_sample=args.center_sample)
 
-                # 损失函数
-                criterion = Criterion(cls_pred, obj_pred, bbox_pred, targets, hyp)
-                total_loss, loss_cls, loss_obj, loss_bbox = criterion.criterion(val_size, bs)
-                # print(f"Epoch{epoch}: iter_i: {iter_i} total_loss:{total_loss}")
+                    obj_pred, cls_pred, bbox_pred = model(images)
 
-                val_loss += total_loss.detach()
+                    # 损失函数
+                    criterion = Criterion(cls_pred, obj_pred, bbox_pred, targets, hyp)
+                    total_loss, loss_cls, loss_obj, loss_bbox = criterion.criterion(val_size, bs)
+                    # print(f"Epoch{epoch}: iter_i: {iter_i} total_loss:{total_loss}")
 
-                # save model
-                if (epoch + 1) % 10 == 0:
-                    print('Saving state, epoch:', epoch + 1)
-                    torch.save(model.state_dict(), os.path.join(save_dir,
-                            'yolo_' + repr(epoch + 1) + '.pth')
-                            )
+                    val_loss += total_loss.detach()
 
-                var_pbar.set_postfix(
-                    EPOCH=epoch,
-                    val_Loss=np.round(val_loss.cpu().numpy().item() / (iter_i+1), 5),
-                    Total_Loss=np.round(total_loss.cpu().detach().numpy().item(), 5),
-                    CLS_Loss=np.round(loss_cls.cpu().detach().numpy().item(), 5),
-                    OBJ_Loss=np.round(loss_obj.cpu().detach().numpy().item(), 5),
-                    BBOX_Loss=np.round(loss_bbox.cpu().detach().numpy().item(), 5),
-                )
-                var_pbar.update(0)
+                    evaludater = evaluate_api.Evaluater(val_size, args.anchors, model.stride, class_names, num_classes,
+                                                        args.root, args.val_path, device, args.conf_thresh, args.nms_thresh)
+
+                    evaludater.get_detections_txt(model)
+
+                    # save model
+                    if (epoch + 1) % 10 == 0:
+                        print('Saving state, epoch:', epoch + 1)
+                        torch.save(model.state_dict(), os.path.join(save_dir,
+                                'yolo_' + repr(epoch + 1) + '.pth')
+                                )
+
+                    var_pbar.set_postfix(
+                        EPOCH=epoch,
+                        val_Loss=np.round(val_loss.cpu().numpy().item() / (iter_i+1), 5),
+                        Total_Loss=np.round(total_loss.cpu().detach().numpy().item(), 5),
+                        CLS_Loss=np.round(loss_cls.cpu().detach().numpy().item(), 5),
+                        OBJ_Loss=np.round(loss_obj.cpu().detach().numpy().item(), 5),
+                        BBOX_Loss=np.round(loss_bbox.cpu().detach().numpy().item(), 5),
+                    )
+                    var_pbar.update(0)
+
+
+
 
 
 if __name__ == "__main__":
