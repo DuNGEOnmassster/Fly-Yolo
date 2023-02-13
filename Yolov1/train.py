@@ -36,13 +36,13 @@ def parse_args():
                         help="the hyperparameter configure of dataset and loss")
     parser.add_argument("--class_names", default="./configure/VOC_classes.yaml",
                         help="the classes of dataset")
-    parser.add_argument("--root", default=r"E:\datasets\VOCdevkit2012\VOC2012",
+    parser.add_argument("--root", default=r"E:\datasets\yolo_dataset",
                         help="dataset root path")
-    parser.add_argument("--train_path", default=r"E:\datasets\VOCdevkit2012\VOC2012\ImageSets\Main\train.txt",
+    parser.add_argument("--train_path", default=r"E:\datasets\yolo_dataset\ImageSets\Main\train.txt",
                         help="the train dataset path")
-    parser.add_argument("--val_path", default=r"E:\datasets\VOCdevkit2012\VOC2012\ImageSets\Main\test.txt",
+    parser.add_argument("--val_path", default=r"E:\datasets\yolo_dataset\ImageSets\Main\test.txt",
                         help="the val dataset path")
-    parser.add_argument("--test_path", default=r"E:\datasets\VOCdevkit2012\VOC2012\ImageSets\Main\val.txt",
+    parser.add_argument("--test_path", default=r"E:\datasets\yolo_dataset\ImageSets\Main\val.txt",
                         help="the test dataset path")
     parser.add_argument("--save_path", default="./logs",
                         help="the model save path")
@@ -60,7 +60,7 @@ def parse_args():
                         help='yes or no to choose using warmup strategy to train')
     parser.add_argument('--wp_epoch', default=2, type=int,
                         help='The upper bound of warm-up')
-    parser.add_argument("--batch_size", type=int, default=8,
+    parser.add_argument("--batch_size", type=int, default=16,
                         help="batch size")
     parser.add_argument("--anchors", default="",
                         help="anchors")
@@ -383,11 +383,6 @@ def train(args):
 
                     val_loss += total_loss.detach()
 
-                    evaludater = evaluate_api.Evaluater(val_size, args.anchors, model.stride, class_names, num_classes,
-                                                        args.root, args.val_path, device, args.conf_thresh, args.nms_thresh)
-
-                    evaludater.get_detections_txt(model)
-
                     # save model
                     if (epoch + 1) % 10 == 0:
                         print('Saving state, epoch:', epoch + 1)
@@ -404,6 +399,11 @@ def train(args):
                         BBOX_Loss=np.round(loss_bbox.cpu().detach().numpy().item(), 5),
                     )
                     var_pbar.update(0)
+
+            evaludater = evaluate_api.Evaluater(val_size, args.anchors, model.stride, class_names, num_classes,
+                                                args.root, args.val_path, device, args.conf_thresh, args.nms_thresh)
+
+            evaludater.get_detections_txt(model)
 
 
 

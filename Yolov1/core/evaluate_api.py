@@ -79,8 +79,8 @@ class Evaluater():
                 # nxnynwnh -> nx1ny1nx2ny2
                 bbox_pred[..., 0] = bbox_pred[..., 0] - bbox_pred[..., 2] / 2
                 bbox_pred[..., 1] = bbox_pred[..., 1] - bbox_pred[..., 3] / 2
-                bbox_pred[..., 0] = bbox_pred[..., 0] + bbox_pred[..., 2] / 2
-                bbox_pred[..., 1] = bbox_pred[..., 1] + bbox_pred[..., 3] / 2
+                bbox_pred[..., 2] = bbox_pred[..., 0] + bbox_pred[..., 2] / 2
+                bbox_pred[..., 3] = bbox_pred[..., 1] + bbox_pred[..., 3] / 2
 
                 # scores
                 scores = torch.sigmoid(obj_pred) * torch.softmax(cls_pred, dim=-1)
@@ -93,23 +93,26 @@ class Evaluater():
 
                 bboxes = bboxes * self.input_shape
 
+                detections_root = r"E:\workspace\PycharmProjects\Fly-Yolo\Yolov1\detections"
                 detection_name = os.path.split(self.img_paths[i])[-1].split('.')[0]
 
-                detection_path = os.path.join("./detections", detection_name, '.txt')
+                detection_path = os.path.join(detections_root, detection_name + '.txt')
+                # print(detection_path)
 
-                for i, box in enumerate(bboxes):
-                    # box (ymin, xmin, ymax, xmax)
-                    xmin, ymin, xmax, ymax = bboxes[i]
-                    xmin = max(0, np.floor(xmin).astype("int32"))
-                    ymin = max(0, np.floor(ymin).astype("int32"))
-                    xmax = min(self.input_shape, np.ceil(xmax).astype("int32"))
-                    ymax = min(self.input_shape, np.ceil(ymax).astype("int32"))
-                    label_box = [xmin, ymin, xmax, ymax]
+                with open(detection_path, "w") as f:
+                    for j, box in enumerate(bboxes):
+                        # box (ymin, xmin, ymax, xmax)
+                        xmin, ymin, xmax, ymax = bboxes[j]
+                        x = (xmin + xmax) / 2
+                        y = (ymin + ymax) / 2
+                        w = (xmax - xmin)
+                        h = (ymax - ymin)
+                        label_box = [x, y, w, h]
 
-                    with open(detection_path, "a") as f:
-                        str1 = self.class_names[cls_inds[i]] + " " + " ".join(str(j) for j in label_box)
+                        str1 = self.class_names[cls_inds[j]] + " " + scores[j] + " ".join(str(k) for k in label_box)
                         # print(str1)
                         f.write(str1 + "\n")
+                f.close()
 
     '''
     生成一幅图像全部真实框(class_name, x, y, w, h)的txt
