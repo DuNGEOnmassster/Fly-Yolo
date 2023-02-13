@@ -108,8 +108,9 @@ class YOLOv1(nn.Module):
         bbox_pred = torch.cat([xy_pred, wh_pred], dim=-1)
 
         return bbox_pred
-    
-    def reference(self, x):
+
+    @torch.no_grad()
+    def inference_single_image(self, x):
         __doc__ = r"""
         推理函数，获得单张图像的边界框和类别预测值
         parm:
@@ -139,9 +140,9 @@ class YOLOv1(nn.Module):
         # [1, 4, H, W] -> [1, H, W, 4] -> [1, HW, 4]
         reg_pred = reg_pred.permute(0, 2, 3, 1).contiguous().view(1, -1, 4)
 
-        # txtytwth -> x1y1x2y2
+        # txtytwth -> xywh
         bbox_pred = self.decode_box(reg_pred=reg_pred)
-        # x1y1x2y2 -> normalized_x1y1x2y2
+        # xywh -> nxnynwnh
         bbox_pred = bbox_pred / self.img_size
 
         return obj_pred, cls_pred, bbox_pred
@@ -158,7 +159,7 @@ class YOLOv1(nn.Module):
             bbox_pred tensor [B, HW, 4(normalized_x1+y1+x2+y2)]
         """
         if not self.trainable:
-            self.reference(x)
+            self.inference_single_image(x)
         else:
             B = x.shape[0]
             C = self.num_classes
@@ -176,7 +177,7 @@ class YOLOv1(nn.Module):
             # print(reg_pred.shape)
 
             # [B, 1, H, W] -> [B, H, W, 1] -> [B, HW, 1]
-            obj_pred = obj_pred.permute(0, 2, 3, 1).contiguous().view(B, -1)
+            obj_pred = obj_pred.permute(0, 2, 3, 1).contiguous().view(B, -1, 1)
             # [B, C, H, W] -> [B, H, W, C] -> [B, HW, C]
             cls_pred = cls_pred.permute(0, 2, 3, 1).contiguous().view(B, -1, C)
             # [B, 4, H, W] -> [B, H, W, 4] -> [B, HW, 4]

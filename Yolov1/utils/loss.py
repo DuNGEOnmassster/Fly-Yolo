@@ -53,6 +53,7 @@ class Criterion():
 
         # loss_bbox
         ciou = bbox_iou(pred_bbox.T, target_bbox, x1y1x2y2=False, CIoU=True)
+        # print(ciou)
         ciou = ciou.reshape(batch_size, -1)
         # print(ciou.shape)
         loss_bbox = 1.0 - ciou
@@ -71,7 +72,7 @@ class Criterion():
         # loss_obj
         target_obj = (1.0 - self.hyp['gr']) + self.hyp['gr'] * ciou.detach().clamp(0).type(target_pos.dtype)
         # print(target_obj.shape)
-        loss_obj = self.BCEObj(self.pred_obj, target_obj)
+        loss_obj = self.BCEObj(self.pred_obj[..., 0], target_obj)
         loss_obj = self.scale_loss(loss_obj, batch_size, num_pos)
 
         loss_cls = loss_cls * self.hyp['cls']

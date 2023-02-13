@@ -54,7 +54,7 @@ class YOLODataset(Dataset):
         index = self.indices[index]
         hyp = self.hyp
 
-        mosaic = self.mosaic and random.random() < hyp["mosaic"]
+        mosaic = self.mosaic and random.random() < hyp["mosaic"] and self.augment
         if mosaic:
             img, labels = self.load_mosaic(index)
             shapes = None
