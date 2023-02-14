@@ -22,6 +22,7 @@ from utils.create_label import CreateTargets
 from utils.loss import Criterion
 from utils.path import pathset
 from core import evaluate_api
+from pascalvoc import get_voc_map
 
 def parse_args():
     # Get current path to set default folders
@@ -404,10 +405,7 @@ def train(args):
                                                 args.root, args.val_path, device, args.conf_thresh, args.nms_thresh)
 
             evaludater.get_txt(model)
-
-
-
-
+            get_voc_map(args)
 
 if __name__ == "__main__":
     args = parse_args()

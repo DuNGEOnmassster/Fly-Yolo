@@ -1,4 +1,4 @@
-from utils import *
+from lib.util import *
 
 
 class BoundingBox:
