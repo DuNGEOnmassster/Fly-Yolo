@@ -34,9 +34,9 @@ class Evaluater():
         self.conf_thresh = conf_thresh
 
     '''
-    生成一幅图像全部预测框(class_name, x, y, w, h)的txt
+    生成一幅图像全部预测框(class_name, x, y, w, h)的txt和真实框的txt
     '''
-    def get_detections_txt(self, model):
+    def get_txt(self, model):
 
         if os.path.exists("./detections") is False:
             os.makedirs("./detections")
@@ -57,6 +57,8 @@ class Evaluater():
 
             if gt.size:
                 gt[:, 1:] = xywhn2xyxy(gt[:, 1:], ratio[0] * w, ratio[1] * h, padw=pad[0], padh=pad[1])
+
+            gt[:, 1:] = xyxy2xywh(gt[:, 1:])
 
             img = img[:, :, ::-1].transpose(2, 0, 1)  # BGR to RGB, to 3x640x640
             img = np.ascontiguousarray(img)
@@ -94,10 +96,13 @@ class Evaluater():
                 bboxes = bboxes * self.input_shape
 
                 detections_root = r"E:\workspace\PycharmProjects\Fly-Yolo\Yolov1\detections"
-                detection_name = os.path.split(self.img_paths[i])[-1].split('.')[0]
+                img_name = os.path.split(self.img_paths[i])[-1].split('.')[0]
 
-                detection_path = os.path.join(detections_root, detection_name + '.txt')
+                detection_path = os.path.join(detections_root, img_name + '.txt')
                 # print(detection_path)
+
+                gt_root = r"E:\workspace\PycharmProjects\Fly-Yolo\Yolov1\groundtruths"
+                gt_path = os.path.join(gt_root, img_name + '.txt')
 
                 with open(detection_path, "w") as f:
                     for j, box in enumerate(bboxes):
@@ -114,11 +119,17 @@ class Evaluater():
                         f.write(str1 + "\n")
                 f.close()
 
-    '''
-    生成一幅图像全部真实框(class_name, x, y, w, h)的txt
-    '''
-    def get_gt_txt(self, ):
-        pass
+                with open(gt_path, "w") as f:
+                    for j, box in enumerate(gt):
+                        # box (ymin, xmin, ymax, xmax)
+                        cls_ind = int(box[0])
+                        x, y, w, h = box[1:]
+                        label_box = [x, y, w, h]
+
+                        str1 = self.class_names[cls_ind] + " " + " ".join(str(k) for k in label_box)
+                        # print(str1)
+                        f.write(str1 + "\n")
+                f.close()
 
     def nms(self, dets, scores):
         """"Pure Python NMS YOLOv4."""

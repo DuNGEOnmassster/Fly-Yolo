@@ -403,7 +403,7 @@ def train(args):
             evaludater = evaluate_api.Evaluater(val_size, args.anchors, model.stride, class_names, num_classes,
                                                 args.root, args.val_path, device, args.conf_thresh, args.nms_thresh)
 
-            evaludater.get_detections_txt(model)
+            evaludater.get_txt(model)
 
 
 
