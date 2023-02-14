@@ -1,5 +1,5 @@
-from BoundingBox import *
-from utils import *
+from lib.BoundingBox import *
+from lib.util import *
 
 
 class BoundingBoxes:

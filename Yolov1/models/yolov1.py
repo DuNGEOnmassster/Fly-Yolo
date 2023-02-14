@@ -102,10 +102,9 @@ class YOLOv1(nn.Module):
         # x1y1_pred = xy_pred - wh_pred / 2
         # x2y2_pred = xy_pred + wh_pred / 2
         # bbox_pred = torch.cat([x1y1_pred, x2y2_pred], dim=-1)
-        #
-        # # 上采样到输入图像大小
-        # bbox_pred = bbox_pred * self.stride
         bbox_pred = torch.cat([xy_pred, wh_pred], dim=-1)
+        # 上采样到输入图像大小
+        bbox_pred = bbox_pred * self.stride[0]
 
         return bbox_pred
 

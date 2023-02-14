@@ -52,10 +52,10 @@ import shutil
 import sys
 
 import _init_paths
-from BoundingBox import BoundingBox
-from BoundingBoxes import BoundingBoxes
-from Evaluator import *
-from utils import BBFormat
+from lib.BoundingBox import BoundingBox
+from lib.BoundingBoxes import BoundingBoxes
+from lib.Evaluator import *
+from lib.util import BBFormat
 
 
 # Validate formats
@@ -111,7 +111,7 @@ def ValidateCoordinatesTypes(arg, argName, errors):
     errors.append('argument %s: invalid value. It must be either \'rel\' or \'abs\'' % argName)
 
 
-def ValidatePaths(arg, nameArg, errors):
+def ValidatePaths(arg, nameArg, errors, currentPath):
     if arg is None:
         errors.append('argument %s: invalid directory' % nameArg)
     elif os.path.isdir(arg) is False and os.path.isdir(os.path.join(currentPath, arg)) is False:
@@ -197,89 +197,10 @@ def getBoundingBoxes(directory,
     return allBoundingBoxes, allClasses
 
 
-# Get current path to set default folders
-currentPath = os.path.dirname(os.path.abspath(__file__))
-
-VERSION = '0.2 (beta)'
-
-with open('message.txt', 'r') as f:
-    message = f'\n\n{f.read()}\n\n'
-
-print(message)
-
-parser = argparse.ArgumentParser(
-    prog='Object Detection Metrics - Pascal VOC',
-    description=
-    f'{message}\nThis project applies the most popular metrics used to evaluate object detection '
-    'algorithms.\nThe current implemention runs the Pascal VOC metrics.\nFor further references, '
-    'please check:\nhttps://github.com/rafaelpadilla/Object-Detection-Metrics',
-    epilog="Developed by: Rafael Padilla (rafael.padilla@smt.ufrj.br)")
-parser.add_argument('-v', '--version', action='version', version='%(prog)s ' + VERSION)
-# Positional arguments
-# Mandatory
-parser.add_argument('-gt',
-                    '--gtfolder',
-                    dest='gtFolder',
-                    default=os.path.join(currentPath, 'groundtruths'),
-                    metavar='',
-                    help='folder containing your ground truth bounding boxes')
-parser.add_argument('-det',
-                    '--detfolder',
-                    dest='detFolder',
-                    default=os.path.join(currentPath, 'detections'),
-                    metavar='',
-                    help='folder containing your detected bounding boxes')
-# Optional
-parser.add_argument('-t',
-                    '--threshold',
-                    dest='iouThreshold',
-                    type=float,
-                    default=0.5,
-                    metavar='',
-                    help='IOU threshold. Default 0.5')
-parser.add_argument('-gtformat',
-                    dest='gtFormat',
-                    metavar='',
-                    default='xywh',
-                    help='format of the coordinates of the ground truth bounding boxes: '
-                    '(\'xywh\': <left> <top> <width> <height>)'
-                    ' or (\'xyrb\': <left> <top> <right> <bottom>)')
-parser.add_argument('-detformat',
-                    dest='detFormat',
-                    metavar='',
-                    default='xywh',
-                    help='format of the coordinates of the detected bounding boxes '
-                    '(\'xywh\': <left> <top> <width> <height>) '
-                    'or (\'xyrb\': <left> <top> <right> <bottom>)')
-parser.add_argument('-gtcoords',
-                    dest='gtCoordinates',
-                    default='abs',
-                    metavar='',
-                    help='reference of the ground truth bounding box coordinates: absolute '
-                    'values (\'abs\') or relative to its image size (\'rel\')')
-parser.add_argument('-detcoords',
-                    default='abs',
-                    dest='detCoordinates',
-                    metavar='',
-                    help='reference of the ground truth bounding box coordinates: '
-                    'absolute values (\'abs\') or relative to its image size (\'rel\')')
-parser.add_argument('-imgsize',
-                    dest='imgSize',
-                    metavar='',
-                    help='image size. Required if -gtcoords or -detcoords are \'rel\'')
-parser.add_argument('-sp',
-                    '--savepath',
-                    dest='savePath',
-                    metavar='',
-                    help='folder where the plots are saved')
-parser.add_argument('-np',
-                    '--noplot',
-                    dest='showPlot',
-                    action='store_false',
-                    help='no plot is shown during execution')
-args = parser.parse_args()
 
 def get_voc_map(args):
+    # Get current path to set default folders
+    currentPath = os.path.dirname(os.path.abspath(__file__))
 
     iouThreshold = args.iouThreshold
 
@@ -290,7 +211,7 @@ def get_voc_map(args):
     detFormat = ValidateFormats(args.detFormat, '-detformat', errors)
     # Groundtruth folder
     if ValidateMandatoryArgs(args.gtFolder, '-gt/--gtfolder', errors):
-        gtFolder = ValidatePaths(args.gtFolder, '-gt/--gtfolder', errors)
+        gtFolder = ValidatePaths(args.gtFolder, '-gt/--gtfolder', errors, currentPath)
     else:
         # errors.pop()
         gtFolder = os.path.join(currentPath, 'groundtruths')
@@ -306,14 +227,14 @@ def get_voc_map(args):
         imgSize = ValidateImageSize(args.imgSize, '-imgsize', '-detCoordinates', errors)
     # Detection folder
     if ValidateMandatoryArgs(args.detFolder, '-det/--detfolder', errors):
-        detFolder = ValidatePaths(args.detFolder, '-det/--detfolder', errors)
+        detFolder = ValidatePaths(args.detFolder, '-det/--detfolder', errors, currentPath)
     else:
         # errors.pop()
         detFolder = os.path.join(currentPath, 'detections')
         if os.path.isdir(detFolder) is False:
             errors.append('folder %s not found' % detFolder)
     if args.savePath is not None:
-        savePath = ValidatePaths(args.savePath, '-sp/--savepath', errors)
+        savePath = ValidatePaths(args.savePath, '-sp/--savepath', errors, currentPath)
     else:
         savePath = os.path.join(currentPath, 'results')
     # Validate savePath
