@@ -1,6 +1,7 @@
 import torch
 import torch.nn as nn
 import os
+from utils.path import pathset
 
 # Example of target with class indices
 loss = nn.CrossEntropyLoss()
@@ -16,6 +17,10 @@ target = torch.randn(3, 5).softmax(dim=1)
 output = loss(input, target)
 output.backward()
 
-path = r"E:\datasets\VOCdevkit2012\VOC2012\JPEGImages\2007_000027.jpg"
+# path = r"E:\datasets\VOCdevkit2012\VOC2012\JPEGImages\2007_000027.jpg"
+
+chosen_pathset = "pathset2"
+root = pathset[chosen_pathset]["root"]
+path = root + "JPEGImages\2007_000027.jpg"
 
 print(os.path.split(path)[-1].split('.')[0])

@@ -410,7 +410,7 @@ def train(args):
 if __name__ == "__main__":
     args = parse_args()
 
-    chosen_pathset = "pathset1"
+    chosen_pathset = "pathset2"
 
     args.root = pathset[chosen_pathset]["root"]
     args.train_path = pathset[chosen_pathset]["train_path"]
